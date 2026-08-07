@@ -14,6 +14,7 @@ import { RUBROS, SERVICE_TEMPLATES, type Rubro, type ServiceTemplate } from "./t
 import { createClient } from "@beautycrm/supabase/client"
 
 const TOTAL_STEPS = 5
+const STORAGE_KEY = "beautycrm_onboarding_state"
 
 type TenantCtx = { tenantId: string; branchId: string }
 
@@ -22,6 +23,54 @@ export function OnboardingWizard() {
   const [step, setStep] = useState(0)
   const [ctx, setCtx] = useState<TenantCtx | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [hydrated, setHydrated] = useState(false)
+
+  // Restaura el progreso guardado (si lo hay) una vez montado en el cliente.
+  // Se hace en un efecto -no en el initializer de useState- para no romper
+  // la hidratación: el render del servidor siempre arranca en el Paso 0.
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(STORAGE_KEY)
+      if (raw) {
+        const saved = JSON.parse(raw) as { step: number; ctx: TenantCtx | null }
+        if (saved.ctx && typeof saved.step === "number" && saved.step > 0) {
+          setCtx(saved.ctx)
+          setStep(saved.step)
+        }
+      }
+    } catch {
+      // localStorage no disponible o el JSON quedó corrupto: arrancamos
+      // desde el Paso 0 sin romper el wizard.
+    } finally {
+      setHydrated(true)
+    }
+  }, [])
+
+  // Persiste el progreso en cada cambio de paso, ya con la hidratación
+  // resuelta (para no pisar lo guardado con el estado inicial en blanco).
+  useEffect(() => {
+    if (!hydrated) return
+    try {
+      if (ctx) {
+        window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ step, ctx }))
+      } else {
+        window.localStorage.removeItem(STORAGE_KEY)
+      }
+    } catch {
+      // Si el storage está lleno o bloqueado, seguimos igual: es una
+      // mejora de UX, no una dependencia funcional del wizard.
+    }
+  }, [step, ctx, hydrated])
+
+  function finishOnboarding() {
+    try {
+      window.localStorage.removeItem(STORAGE_KEY)
+    } catch {
+      // no-op
+    }
+    router.push("/dashboard")
+    router.refresh()
+  }
 
   return (
     <div className="container" style={{ maxWidth: 560 }}>
@@ -79,10 +128,7 @@ export function OnboardingWizard() {
       {step === 4 && ctx && (
         <StepFirstAppointment
           ctx={ctx}
-          onDone={() => {
-            router.push("/dashboard")
-            router.refresh()
-          }}
+          onDone={finishOnboarding}
           onError={setError}
         />
       )}
@@ -318,6 +364,8 @@ function StepTeam({
 }) {
   const [fullName, setFullName] = useState("")
   const [email, setEmail] = useState("")
+  const [phone, setPhone] = useState("")
+  const [channel, setChannel] = useState<"email" | "whatsapp">("email")
   const [commissionRuleId, setCommissionRuleId] = useState("")
   const [rules, setRules] = useState<{ id: string; name: string }[]>([])
   const [invited, setInvited] = useState<string[]>([])
@@ -344,22 +392,25 @@ function StepTeam({
       fullName,
       email,
       commissionRuleId,
+      channel,
+      phone: channel === "whatsapp" ? phone : undefined,
     })
     setLoading(false)
     if (!result.ok) {
       onError(result.error)
       return
     }
-    setInvited((prev) => [...prev, email])
+    setInvited((prev) => [...prev, channel === "whatsapp" ? `${email} (WhatsApp)` : email])
     setFullName("")
     setEmail("")
+    setPhone("")
   }
 
   return (
     <div className="card">
       <h1>¿Quién trabaja con vos?</h1>
       <p style={{ color: "var(--ink-soft)" }}>
-        Le mandamos un link de acceso por email — sin contraseñas.
+        Le mandamos un link de acceso — sin contraseñas — por email o WhatsApp.
       </p>
 
       {invited.length > 0 ? (
@@ -383,6 +434,38 @@ function StepTeam({
             onChange={(e) => setEmail(e.target.value)}
           />
         </Field>
+        <Field label="Cómo le avisamos" htmlFor="opChannel">
+          <div style={{ display: "flex", gap: 8 }}>
+            <Button
+              type="button"
+              variant={channel === "email" ? "primary" : "secondary"}
+              onClick={() => setChannel("email")}
+              style={{ flex: 1 }}
+            >
+              Email
+            </Button>
+            <Button
+              type="button"
+              variant={channel === "whatsapp" ? "primary" : "secondary"}
+              onClick={() => setChannel("whatsapp")}
+              style={{ flex: 1 }}
+            >
+              WhatsApp
+            </Button>
+          </div>
+        </Field>
+        {channel === "whatsapp" && (
+          <Field label="Teléfono (con código de país)" htmlFor="opPhone">
+            <Input
+              id="opPhone"
+              type="tel"
+              required
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="+54 9 261 123-4567"
+            />
+          </Field>
+        )}
         <Field label="Regla de comisión" htmlFor="opRule">
           <select
             id="opRule"

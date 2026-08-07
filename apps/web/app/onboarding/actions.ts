@@ -1,6 +1,7 @@
 "use server"
 
 import { createClient, createServiceRoleClient } from "@beautycrm/supabase/server"
+import { sendWhatsAppInvite, WhatsAppNotConfiguredError } from "@/lib/whatsapp"
 
 export type ActionResult<T = undefined> =
   | { ok: true; data: T }
@@ -104,20 +105,29 @@ export async function saveServices(
 }
 
 /**
- * Paso 3 — Equipo. Invita a la operadora por email con un magic link
- * (admin.inviteUserByEmail: requiere service role porque crea el usuario
- * de auth directamente, sin que la operadora se autoregistre). Al tocar el
- * link entra ya autenticada; el trigger on_auth_user_created crea su fila
- * en public.users, y acá le creamos la membership con rol operator y la
- * regla de comisión elegida.
+ * Paso 3 — Equipo. Invita a la operadora por email (magic link, vía
+ * admin.inviteUserByEmail) o por WhatsApp (Meta Cloud API, Bloque B.3).
+ * Ambos caminos requieren service role porque crean el usuario de auth
+ * directamente, sin que la operadora se autoregistre. Al entrar por el
+ * link, el trigger on_auth_user_created crea su fila en public.users, y
+ * acá le creamos la membership con rol operator y la regla de comisión
+ * elegida.
  *
- * TODO (fuera de esta sesión): enviar el link también por WhatsApp —
- * Meta WhatsApp Cloud API (Bloque B.3), no solo email.
+ * Camino WhatsApp: usamos admin.generateLink (crea el usuario y devuelve
+ * el link, sin mandar el email que dispararía inviteUserByEmail) y
+ * mandamos ese link por Meta Cloud API. Si WhatsApp no está configurado
+ * en el tenant, se lo decimos al dueño en vez de fallar en silencio.
  */
 export async function inviteOperator(
   tenantId: string,
   branchId: string,
-  input: { fullName: string; email: string; commissionRuleId: string }
+  input: {
+    fullName: string
+    email: string
+    commissionRuleId: string
+    channel?: "email" | "whatsapp"
+    phone?: string
+  }
 ): Promise<ActionResult> {
   const supabase = await createClient()
 
@@ -126,11 +136,11 @@ export async function inviteOperator(
   } = await supabase.auth.getUser()
   if (!user) return { ok: false, error: "Sesión inválida." }
 
-  // inviteUserByEmail corre con service role (bypasea RLS) porque crea el
-  // usuario de auth directamente — por eso la verificación de que quien
-  // llama es owner de ESTE tenant se hace acá a mano, antes de disparar
-  // el invite. Sin esto, cualquier usuario autenticado podría hacer que
-  // el servidor mande invitaciones a nombre de un tenant ajeno.
+  // inviteUserByEmail/generateLink corren con service role (bypasean RLS)
+  // porque crean el usuario de auth directamente — por eso la verificación
+  // de que quien llama es owner de ESTE tenant se hace acá a mano, antes
+  // de disparar el invite. Sin esto, cualquier usuario autenticado podría
+  // hacer que el servidor mande invitaciones a nombre de un tenant ajeno.
   const { data: ownerMembership } = await supabase
     .from("memberships")
     .select("id")
@@ -166,21 +176,67 @@ export async function inviteOperator(
   }
 
   const admin = createServiceRoleClient()
-  const { data: invited, error: inviteError } = await admin.auth.admin.inviteUserByEmail(
-    input.email,
-    { data: { full_name: input.fullName } }
-  )
+  const channel = input.channel ?? "email"
+  let invitedUserId: string
 
-  if (inviteError || !invited.user) {
-    return {
-      ok: false,
-      error: `No pudimos invitar a ${input.email}. Verificá que el email esté bien escrito.`,
+  if (channel === "whatsapp") {
+    if (!input.phone) {
+      return { ok: false, error: "Falta el teléfono para invitar por WhatsApp." }
     }
+
+    const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
+      type: "invite",
+      email: input.email,
+      options: { data: { full_name: input.fullName } },
+    })
+
+    if (linkError || !linkData?.user) {
+      return {
+        ok: false,
+        error: `No pudimos invitar a ${input.email}. Verificá que el email esté bien escrito.`,
+      }
+    }
+
+    try {
+      await sendWhatsAppInvite({
+        phone: input.phone,
+        fullName: input.fullName,
+        actionLink: linkData.properties.action_link,
+      })
+    } catch (err) {
+      if (err instanceof WhatsAppNotConfiguredError) {
+        return {
+          ok: false,
+          error:
+            "WhatsApp todavía no está configurado en este negocio. Invitá por email mientras tanto.",
+        }
+      }
+      return {
+        ok: false,
+        error: `Creamos el acceso pero no pudimos mandarlo por WhatsApp a ${input.phone}. Probá de nuevo o invitá por email.`,
+      }
+    }
+
+    invitedUserId = linkData.user.id
+  } else {
+    const { data: invited, error: inviteError } = await admin.auth.admin.inviteUserByEmail(
+      input.email,
+      { data: { full_name: input.fullName } }
+    )
+
+    if (inviteError || !invited.user) {
+      return {
+        ok: false,
+        error: `No pudimos invitar a ${input.email}. Verificá que el email esté bien escrito.`,
+      }
+    }
+
+    invitedUserId = invited.user.id
   }
 
   const { error: membershipError } = await supabase.from("memberships").insert({
     tenant_id: tenantId,
-    user_id: invited.user.id,
+    user_id: invitedUserId,
     branch_id: branchId,
     role: "operator",
     commission_rule_id: input.commissionRuleId,

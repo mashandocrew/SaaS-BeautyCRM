@@ -111,29 +111,40 @@ final** del dashboard (sesión aparte, dedicada).
 
 ### TODOs concretos para la próxima sesión
 
+Resueltos en la sesión de seguimiento (Cowork, ver commits `fix(web):
+persiste el progreso del wizard de onboarding`, `feat(web): comisiones en
+vivo por Realtime` e `feat(web): invitar operadoras por WhatsApp`):
+
+- ~~Onboarding no resumible~~ — el wizard ahora persiste `{step, ctx}` en
+  `localStorage` en cada paso (a partir del Paso 1) y lo limpia al terminar.
+- ~~"Mis comisiones" no era en vivo~~ — `commission_ledger` está en la
+  publicación `supabase_realtime` (migración `0006`) y la página se
+  suscribe por `postgres_changes` filtrado por `operator_id`.
+- ~~Invitar operadoras solo por email~~ — `inviteOperator` ahora acepta
+  `channel: "email" | "whatsapp"`. El camino WhatsApp usa
+  `admin.generateLink` + Meta WhatsApp Cloud API (`apps/web/lib/whatsapp.ts`).
+  Requiere configurar `WHATSAPP_CLOUD_API_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`
+  y `WHATSAPP_INVITE_TEMPLATE_NAME` (ver `.env.example`) y tener la
+  plantilla de mensaje aprobada en Meta Business Manager — sin eso, el
+  wizard avisa con un error claro en vez de fallar en silencio.
+
+Pendientes reales:
+
 - Rediseño visual del dashboard (paleta y componentes finales) — sesión
   dedicada, con `dashboard-mockup-borrador.html` como punto de partida.
-- Onboarding no es resumible: si el dueño refresca la página a mitad del
-  wizard, pierde el progreso de los pasos 1-4 (el tenant ya quedó creado
-  desde el Paso 0, pero el estado del wizard vive solo en memoria del
-  cliente). Persistir el paso actual sería la mejora natural.
 - Magic link cross-device: hoy solo funciona 100% si se abre en el mismo
   navegador que lo pidió (PKCE, `/auth/callback`). Para que funcione
   abierto en otro dispositivo (celular, típico) hay que cambiar la
   plantilla de email en el Dashboard de Supabase para que use
   `{{ .TokenHash }}` y apunte a `/auth/confirm` — la ruta ya está
   implementada y probada (así corre el E2E), solo falta el cambio de
-  plantilla, que no se puede hacer vía CLI/MCP.
-- Invitar operadoras hoy es solo por email (`admin.inviteUserByEmail`).
-  Falta el envío por WhatsApp (Bloque B.3, Meta WhatsApp Cloud API).
-- "Mis comisiones" se lee on-load, no en tiempo real — agregar una
-  suscripción de Supabase Realtime al canal de `commission_ledger` sería
-  la mejora natural para que sea literalmente en vivo.
+  plantilla, que no se puede hacer vía CLI/MCP: Dashboard → Authentication
+  → Email Templates → Magic Link.
 - Falta generar los íconos reales del PWA (`apps/web/public/icons/`) —
   hoy el manifest los referencia pero no existen los PNG.
 - Ningún módulo de `FUERA DE ALCANCE` de esta sesión (POS, caja, Calendar,
-  WhatsApp, Stripe/MP, multi-sucursal avanzado, panel Supervisor) está
-  implementado — quedan como TODO explícito, tal como pide el prompt.
+  Stripe/MP, multi-sucursal avanzado, panel Supervisor) está implementado
+  — quedan como TODO explícito, tal como pide el prompt.
 
 ### Nota sobre la carpeta del repo
 
