@@ -73,11 +73,7 @@ export default async function MiClientePage() {
 
       <section className="card">
         <h3>Agregar nota</h3>
-        <NoteForm
-          tenantId={membership.tenant_id}
-          clientId={client.id}
-          appointmentId={nextAppointment.id}
-        />
+        <NoteForm appointmentId={nextAppointment.id} />
       </section>
     </div>
   )

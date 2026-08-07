@@ -5,15 +5,7 @@ import { useRouter } from "next/navigation"
 import { Button, Field } from "@beautycrm/ui"
 import { addTechnicalNote } from "./actions"
 
-export function NoteForm({
-  tenantId,
-  clientId,
-  appointmentId,
-}: {
-  tenantId: string
-  clientId: string
-  appointmentId: string | null
-}) {
+export function NoteForm({ appointmentId }: { appointmentId: string }) {
   const [notes, setNotes] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -24,8 +16,6 @@ export function NoteForm({
     setLoading(true)
     setError(null)
     const result = await addTechnicalNote({
-      tenantId,
-      clientId,
       appointmentId,
       technicalNotes: notes,
     })
