@@ -1,7 +1,6 @@
 "use server"
 
 import { createClient, createServiceRoleClient } from "@beautycrm/supabase/server"
-import { revalidatePath } from "next/cache"
 
 export type ActionResult<T = undefined> =
   | { ok: true; data: T }
@@ -43,7 +42,6 @@ export async function provisionTenant(
   const row = data?.[0]
   if (!row) return { ok: false, error: "No pudimos crear tu negocio. Probá de nuevo." }
 
-  revalidatePath("/onboarding")
   return { ok: true, data: { tenantId: row.tenant_id, branchId: row.branch_id } }
 }
 
@@ -72,7 +70,6 @@ export async function updateTenantSettings(
 
   if (error) return { ok: false, error: "No pudimos guardar los datos." }
 
-  revalidatePath("/onboarding")
   return { ok: true, data: undefined }
 }
 
@@ -103,7 +100,6 @@ export async function saveServices(
 
   if (error) return { ok: false, error: "No pudimos guardar los servicios." }
 
-  revalidatePath("/onboarding")
   return { ok: true, data: undefined }
 }
 
@@ -194,7 +190,6 @@ export async function inviteOperator(
     return { ok: false, error: "Invitamos a la operadora pero no pudimos asignarle el rol." }
   }
 
-  revalidatePath("/onboarding")
   return { ok: true, data: undefined }
 }
 
@@ -264,6 +259,5 @@ export async function createFirstAppointment(
 
   if (apptServiceError) return { ok: false, error: "No pudimos asociar el servicio al turno." }
 
-  revalidatePath("/onboarding")
   return { ok: true, data: undefined }
 }
