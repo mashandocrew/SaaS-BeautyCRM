@@ -1,0 +1,16 @@
+{
+  "name": "beautycrm",
+  "private": true,
+  "packageManager": "pnpm@11.20.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @beautycrm/web dev",
+    "build": "pnpm --filter @beautycrm/web build",
+    "lint": "pnpm -r --if-present run lint",
+    "test:e2e": "pnpm --filter @beautycrm/web test:e2e",
+    "test:security": "pnpm --filter @beautycrm/web test:security",
+    "types:generate": "supabase gen types typescript --project-id xhbrhpfzehshiyjzlxnx --schema public > packages/supabase/src/types.ts"
+  }
+}
