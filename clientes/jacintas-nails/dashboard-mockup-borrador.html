@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>BeautyCRM — Dashboard (Borrador)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  :root{
+    --bg:#f7f5f8;
+    --card:#ffffff;
+    --ink:#2b2233;
+    --ink-soft:#6f6478;
+    --primary:#8a4fff;
+    --primary-soft:#f1e9ff;
+    --pink:#ff7aa8;
+    --pink-soft:#ffe6ee;
+    --gold:#d9a441;
+    --gold-soft:#faf1dd;
+    --green:#22a879;
+    --green-soft:#e4f7ef;
+    --border:#ece7f0;
+    --radius:14px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:'Segoe UI', Helvetica, Arial, sans-serif;
+    background:var(--bg);
+    color:var(--ink);
+  }
+  .app{
+    display:grid;
+    grid-template-columns:240px 1fr;
+    min-height:100vh;
+  }
+
+  /* SIDEBAR */
+  .sidebar{
+    background:linear-gradient(180deg,#2b1a4a,#1c1130);
+    color:#fff;
+    padding:24px 16px;
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+  }
+  .brand{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:0 8px 22px 8px;
+    margin-bottom:10px;
+    border-bottom:1px solid rgba(255,255,255,.08);
+  }
+  .brand-mark{
+    width:34px;height:34px;border-radius:10px;
+    background:linear-gradient(135deg,var(--pink),var(--primary));
+    display:flex;align-items:center;justify-content:center;
+    font-weight:700;font-size:15px;
+  }
+  .brand-name{font-weight:700;font-size:15px;}
+  .brand-sub{font-size:10px;color:rgba(255,255,255,.5);letter-spacing:.04em;}
+  .nav-item{
+    display:flex;align-items:center;gap:10px;
+    padding:10px 12px;border-radius:10px;
+    font-size:13.5px;color:rgba(255,255,255,.72);
+    cursor:default;
+  }
+  .nav-item .ico{width:18px;text-align:center;opacity:.85;}
+  .nav-item.active{
+    background:rgba(255,255,255,.1);
+    color:#fff;
+    font-weight:600;
+  }
+  .nav-item:hover{background:rgba(255,255,255,.06);}
+  .nav-section-label{
+    font-size:10px;text-transform:uppercase;letter-spacing:.08em;
+    color:rgba(255,255,255,.35);
+    padding:16px 12px 4px;
+  }
+  .sidebar-footer{
+    margin-top:auto;
+    padding:12px;
+    border-top:1px solid rgba(255,255,255,.08);
+    display:flex;align-items:center;gap:10px;
+  }
+  .avatar{
+    width:32px;height:32px;border-radius:50%;
+    background:linear-gradient(135deg,var(--gold),#f2c879);
+    display:flex;align-items:center;justify-content:center;
+    font-size:12px;font-weight:700;color:#3a2a05;
+  }
+  .sidebar-footer div p{margin:0;}
+  .sidebar-footer .name{font-size:12.5px;font-weight:600;}
+  .sidebar-footer .role{font-size:10.5px;color:rgba(255,255,255,.5);}
+
+  /* MAIN */
+  main{padding:26px 32px 60px;}
+  .topbar{
+    display:flex;justify-content:space-between;align-items:center;
+    margin-bottom:22px;
+  }
+  .topbar h1{font-size:20px;margin:0 0 4px;}
+  .topbar .sub{font-size:12.5px;color:var(--ink-soft);}
+  .top-actions{display:flex;gap:10px;align-items:center;}
+  .branch-pill{
+    background:var(--primary-soft);color:var(--primary);
+    font-size:12px;font-weight:600;
+    padding:7px 14px;border-radius:999px;
+    display:flex;align-items:center;gap:6px;
+  }
+  .btn-primary{
+    background:var(--primary);color:#fff;border:none;
+    padding:9px 16px;border-radius:10px;font-size:13px;font-weight:600;
+    cursor:default;
+  }
+
+  .kpi-grid{
+    display:grid;grid-template-columns:repeat(4,1fr);gap:16px;
+    margin-bottom:22px;
+  }
+  .kpi-card{
+    background:var(--card);border:1px solid var(--border);
+    border-radius:var(--radius);padding:18px;
+  }
+  .kpi-top{display:flex;justify-content:space-between;align-items:flex-start;}
+  .kpi-label{font-size:12px;color:var(--ink-soft);margin:0 0 8px;}
+  .kpi-value{font-size:23px;font-weight:700;margin:0;}
+  .kpi-icon{
+    width:34px;height:34px;border-radius:9px;
+    display:flex;align-items:center;justify-content:center;font-size:15px;
+  }
+  .kpi-delta{font-size:11.5px;margin-top:8px;font-weight:600;}
+  .up{color:var(--green);}
+  .down{color:#e0567a;}
+
+  .grid-2{display:grid;grid-template-columns:1.5fr 1fr;gap:18px;margin-bottom:18px;}
+  .panel{
+    background:var(--card);border:1px solid var(--border);
+    border-radius:var(--radius);padding:20px;
+  }
+  .panel-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;}
+  .panel-head h3{font-size:14.5px;margin:0;}
+  .panel-head a{font-size:12px;color:var(--primary);font-weight:600;text-decoration:none;}
+
+  .chart-placeholder{
+    height:180px;border-radius:10px;
+    background:
+      linear-gradient(180deg, var(--primary-soft), transparent 70%);
+    position:relative;
+    display:flex;align-items:flex-end;gap:8px;padding:14px;
+  }
+  .bar{
+    flex:1;background:linear-gradient(180deg,var(--primary),var(--pink));
+    border-radius:6px 6px 0 0;opacity:.85;
+  }
+
+  .appt-list{display:flex;flex-direction:column;gap:10px;}
+  .appt-row{
+    display:flex;align-items:center;gap:12px;
+    padding:10px;border-radius:10px;background:#faf9fb;
+  }
+  .appt-time{
+    font-size:12px;font-weight:700;color:var(--primary);
+    width:52px;flex-shrink:0;
+  }
+  .appt-info p{margin:0;}
+  .appt-client{font-size:13px;font-weight:600;}
+  .appt-service{font-size:11.5px;color:var(--ink-soft);}
+  .appt-status{
+    margin-left:auto;font-size:10.5px;font-weight:700;
+    padding:4px 9px;border-radius:999px;
+  }
+  .st-confirmado{background:var(--green-soft);color:var(--green);}
+  .st-pendiente{background:var(--gold-soft);color:var(--gold);}
+  .st-progreso{background:var(--primary-soft);color:var(--primary);}
+
+  .grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px;}
+
+  table{width:100%;border-collapse:collapse;font-size:12.5px;}
+  th{
+    text-align:left;color:var(--ink-soft);font-weight:600;
+    font-size:11px;text-transform:uppercase;letter-spacing:.03em;
+    padding:6px 4px;border-bottom:1px solid var(--border);
+  }
+  td{padding:9px 4px;border-bottom:1px solid #f2eff5;}
+  .op-name{display:flex;align-items:center;gap:8px;font-weight:600;}
+  .mini-avatar{
+    width:22px;height:22px;border-radius:50%;
+    background:linear-gradient(135deg,var(--pink),var(--gold));
+  }
+  .stock-bar-bg{background:#f0ecf3;border-radius:6px;height:6px;width:100%;overflow:hidden;}
+  .stock-bar-fill{height:100%;border-radius:6px;}
+  .tag-low{color:#e0567a;font-weight:700;font-size:11px;}
+
+  .banner{
+    margin-top:18px;
+    background:linear-gradient(90deg,var(--gold-soft),transparent);
+    border:1px solid #eddfb8;
+    border-radius:var(--radius);
+    padding:14px 18px;
+    font-size:12.5px;
+    color:#8a6a1c;
+    display:flex;justify-content:space-between;align-items:center;
+  }
+  .draft-tag{
+    position:fixed;top:14px;right:14px;
+    background:#1c1130;color:#fff;font-size:11px;font-weight:700;
+    padding:6px 12px;border-radius:999px;letter-spacing:.03em;
+    opacity:.85;
+  }
+</style>
+</head>
+<body>
+
+<div class="draft-tag">BORRADOR — pendiente de sesión de diseño dedicada</div>
+
+<div class="app">
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">B</div>
+      <div>
+        <div class="brand-name">BeautyCRM</div>
+        <div class="brand-sub">Jacintas Nails</div>
+      </div>
+    </div>
+
+    <div class="nav-item active"><span class="ico">▦</span> Dashboard</div>
+    <div class="nav-item"><span class="ico">📅</span> Agenda</div>
+    <div class="nav-item"><span class="ico">👥</span> Clientes</div>
+    <div class="nav-item"><span class="ico">💈</span> Servicios</div>
+    <div class="nav-item"><span class="ico">📦</span> Inventario</div>
+    <div class="nav-item"><span class="ico">🧾</span> Caja / POS</div>
+    <div class="nav-item"><span class="ico">💰</span> Comisiones</div>
+
+    <div class="nav-section-label">Negocio</div>
+    <div class="nav-item"><span class="ico">📊</span> Reportes</div>
+    <div class="nav-item"><span class="ico">🏢</span> Sucursales</div>
+    <div class="nav-item"><span class="ico">⚙️</span> Configuración</div>
+
+    <div class="sidebar-footer">
+      <div class="avatar">JP</div>
+      <div>
+        <p class="name">Joaquín</p>
+        <p class="role">Dueño</p>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main>
+    <div class="topbar">
+      <div>
+        <h1>Buen día, Joaquín 👋</h1>
+        <div class="sub">Jueves 7 de agosto · Sucursal Principal</div>
+      </div>
+      <div class="top-actions">
+        <div class="branch-pill">📍 Principal ▾</div>
+        <button class="btn-primary">+ Nuevo turno</button>
+      </div>
+    </div>
+
+    <!-- KPIs -->
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-top">
+          <p class="kpi-label">Ingresos de hoy</p>
+          <div class="kpi-icon" style="background:var(--green-soft);">💵</div>
+        </div>
+        <p class="kpi-value">$84.500</p>
+        <div class="kpi-delta up">▲ 12% vs. ayer</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-top">
+          <p class="kpi-label">Turnos de hoy</p>
+          <div class="kpi-icon" style="background:var(--primary-soft);">📅</div>
+        </div>
+        <p class="kpi-value">14</p>
+        <div class="kpi-delta up">▲ 3 más que ayer</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-top">
+          <p class="kpi-label">Ticket promedio</p>
+          <div class="kpi-icon" style="background:var(--pink-soft);">🎟️</div>
+        </div>
+        <p class="kpi-value">$6.035</p>
+        <div class="kpi-delta down">▼ 4% vs. semana pasada</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-top">
+          <p class="kpi-label">Ocupación del día</p>
+          <div class="kpi-icon" style="background:var(--gold-soft);">⏱️</div>
+        </div>
+        <p class="kpi-value">78%</p>
+        <div class="kpi-delta up">▲ 6 pts</div>
+      </div>
+    </div>
+
+    <!-- Chart + Agenda -->
+    <div class="grid-2">
+      <div class="panel">
+        <div class="panel-head">
+          <h3>Ingresos — últimos 7 días</h3>
+          <a href="#">Ver reportes →</a>
+        </div>
+        <div class="chart-placeholder">
+          <div class="bar" style="height:45%"></div>
+          <div class="bar" style="height:60%"></div>
+          <div class="bar" style="height:38%"></div>
+          <div class="bar" style="height:72%"></div>
+          <div class="bar" style="height:55%"></div>
+          <div class="bar" style="height:90%"></div>
+          <div class="bar" style="height:66%"></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <h3>Próximos turnos</h3>
+          <a href="#">Ver agenda →</a>
+        </div>
+        <div class="appt-list">
+          <div class="appt-row">
+            <div class="appt-time">10:30</div>
+            <div class="appt-info">
+              <p class="appt-client">María Gómez</p>
+              <p class="appt-service">Semi + Nail art · Sol</p>
+            </div>
+            <div class="appt-status st-progreso">En curso</div>
+          </div>
+          <div class="appt-row">
+            <div class="appt-time">11:15</div>
+            <div class="appt-info">
+              <p class="appt-client">Carla Díaz</p>
+              <p class="appt-service">Pedicura spa · Vale</p>
+            </div>
+            <div class="appt-status st-confirmado">Confirmado</div>
+          </div>
+          <div class="appt-row">
+            <div class="appt-time">12:00</div>
+            <div class="appt-info">
+              <p class="appt-client">Rocío Funes</p>
+              <p class="appt-service">Esculpidas · Sol</p>
+            </div>
+            <div class="appt-status st-pendiente">Pendiente</div>
+          </div>
+          <div class="appt-row">
+            <div class="appt-time">13:30</div>
+            <div class="appt-info">
+              <p class="appt-client">Noelia Ríos</p>
+              <p class="appt-service">Manicura clásica · Vale</p>
+            </div>
+            <div class="appt-status st-confirmado">Confirmado</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom row: operadoras, inventario, top servicios -->
+    <div class="grid-3">
+      <div class="panel">
+        <div class="panel-head">
+          <h3>Comisiones del mes</h3>
+          <a href="#">Ver todo →</a>
+        </div>
+        <table>
+          <thead><tr><th>Operadora</th><th>Servicios</th><th>Comisión</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><div class="op-name"><div class="mini-avatar"></div>Sol Martínez</div></td>
+              <td>62</td>
+              <td>$118.400</td>
+            </tr>
+            <tr>
+              <td><div class="op-name"><div class="mini-avatar"></div>Vale Ibáñez</div></td>
+              <td>54</td>
+              <td>$97.200</td>
+            </tr>
+            <tr>
+              <td><div class="op-name"><div class="mini-avatar"></div>Ayelén Ruiz</div></td>
+              <td>41</td>
+              <td>$74.850</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <h3>Alertas de stock</h3>
+          <a href="#">Ver inventario →</a>
+        </div>
+        <table>
+          <thead><tr><th>Insumo</th><th>Nivel</th></tr></thead>
+          <tbody>
+            <tr>
+              <td>Esmalte semi rojo</td>
+              <td>
+                <div class="stock-bar-bg"><div class="stock-bar-fill" style="width:15%;background:#e0567a;"></div></div>
+                <span class="tag-low">Bajo — 15%</span>
+              </td>
+            </tr>
+            <tr>
+              <td>Acetona</td>
+              <td>
+                <div class="stock-bar-bg"><div class="stock-bar-fill" style="width:22%;background:#e0567a;"></div></div>
+                <span class="tag-low">Bajo — 22%</span>
+              </td>
+            </tr>
+            <tr>
+              <td>Base coat</td>
+              <td>
+                <div class="stock-bar-bg"><div class="stock-bar-fill" style="width:68%;background:var(--green);"></div></div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <h3>Servicios más vendidos</h3>
+          <a href="#">Ver catálogo →</a>
+        </div>
+        <table>
+          <thead><tr><th>Servicio</th><th>Realizados</th></tr></thead>
+          <tbody>
+            <tr><td>Semipermanente</td><td>128</td></tr>
+            <tr><td>Esculpidas</td><td>76</td></tr>
+            <tr><td>Pedicura spa</td><td>54</td></tr>
+            <tr><td>Nail art</td><td>39</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="banner">
+      <span>🎁 Promo activa: <strong>$40/mes</strong> — vence el 4 de octubre de 2026, luego $100/mes.</span>
+      <a href="#" style="color:var(--gold);font-weight:700;text-decoration:none;">Gestionar suscripción</a>
+    </div>
+  </main>
+</div>
+
+</body>
+</html>
