@@ -127,11 +127,17 @@ vivo por Realtime` e `feat(web): invitar operadoras por WhatsApp`):
   y `WHATSAPP_INVITE_TEMPLATE_NAME` (ver `.env.example`) y tener la
   plantilla de mensaje aprobada en Meta Business Manager — sin eso, el
   wizard avisa con un error claro en vez de fallar en silencio.
+- ~~Íconos del PWA faltantes~~ — `apps/web/public/icons/icon-192.png` e
+  `icon-512.png` ya existen (monograma "BC" sobre el `theme_color` del
+  manifest, `#4f46e5`). Son un placeholder funcional para que el PWA
+  instale bien; se reemplazan con el arte final en el rediseño visual
+  (punto siguiente).
 
 Pendientes reales:
 
-- Rediseño visual del dashboard (paleta y componentes finales) — sesión
-  dedicada, con `dashboard-mockup-borrador.html` como punto de partida.
+- Rediseño visual del dashboard (paleta y componentes finales, íconos
+  definitivos) — sesión dedicada, con `dashboard-mockup-borrador.html`
+  como punto de partida.
 - Magic link cross-device: hoy solo funciona 100% si se abre en el mismo
   navegador que lo pidió (PKCE, `/auth/callback`). Para que funcione
   abierto en otro dispositivo (celular, típico) hay que cambiar la
@@ -140,8 +146,6 @@ Pendientes reales:
   implementada y probada (así corre el E2E), solo falta el cambio de
   plantilla, que no se puede hacer vía CLI/MCP: Dashboard → Authentication
   → Email Templates → Magic Link.
-- Falta generar los íconos reales del PWA (`apps/web/public/icons/`) —
-  hoy el manifest los referencia pero no existen los PNG.
 - Ningún módulo de `FUERA DE ALCANCE` de esta sesión (POS, caja, Calendar,
   Stripe/MP, multi-sucursal avanzado, panel Supervisor) está implementado
   — quedan como TODO explícito, tal como pide el prompt.
