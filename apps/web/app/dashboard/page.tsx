@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation"
+import { CalendarBlank, CheckCircle } from "@phosphor-icons/react/dist/ssr"
 import { getCurrentMembership } from "@/lib/session"
 import { getDashboardData, type AppointmentRow, type StockAlertRow } from "./queries"
 import { StatTile, Badge, EmptyState } from "@beautycrm/ui"
@@ -47,10 +48,11 @@ export default async function DashboardPage() {
         />
       </div>
 
-      <section className="card" style={{ marginBottom: 16 }}>
+      <section className="card" style={{ marginBottom: "var(--space-4)" }}>
         <h2>Turnos de hoy</h2>
         {data.todayAppointments.length === 0 ? (
           <EmptyState
+            icon={<CalendarBlank size={24} weight="regular" />}
             title="Sin turnos hoy"
             description="Cuando se agende un turno para hoy, va a aparecer acá."
           />
@@ -86,6 +88,7 @@ export default async function DashboardPage() {
         <h2>Alertas de stock</h2>
         {data.stockAlerts.length === 0 ? (
           <EmptyState
+            icon={<CheckCircle size={24} weight="regular" />}
             title="Todo en orden"
             description="Ningún insumo o producto está por debajo del mínimo."
           />
