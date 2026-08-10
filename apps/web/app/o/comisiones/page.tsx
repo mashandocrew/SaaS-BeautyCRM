@@ -25,7 +25,7 @@ export default async function MisComisionesPage() {
   return (
     <div>
       <h1>Mis comisiones</h1>
-      <p style={{ color: "var(--ink-soft)" }}>Período {period}</p>
+      <p style={{ color: "var(--color-ink-soft)" }}>Período {period}</p>
 
       <ComisionesLive initialLedger={ledger ?? []} operatorId={user.id} period={period} />
     </div>

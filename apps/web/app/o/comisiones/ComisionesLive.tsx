@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { Wallet } from "@phosphor-icons/react"
 import { createClient } from "@beautycrm/supabase/client"
 import { StatTile, EmptyState, Badge } from "@beautycrm/ui"
 
@@ -80,6 +81,7 @@ export function ComisionesLive({
         <h3>Detalle</h3>
         {ledger.length === 0 ? (
           <EmptyState
+            icon={<Wallet size={24} weight="regular" />}
             title="Todavía no generaste comisiones este mes"
             description="Cada venta o servicio que completes con tu nombre suma acá automáticamente."
           />

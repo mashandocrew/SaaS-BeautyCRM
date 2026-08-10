@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation"
+import { CalendarBlank } from "@phosphor-icons/react/dist/ssr"
 import { createClient } from "@beautycrm/supabase/server"
 import { getCurrentMembership } from "@/lib/session"
 import { Badge, EmptyState } from "@beautycrm/ui"
@@ -48,12 +49,13 @@ export default async function MiDiaPage() {
   return (
     <div>
       <h1>Mi día</h1>
-      <p style={{ color: "var(--ink-soft)" }}>
+      <p style={{ color: "var(--color-ink-soft)" }}>
         {now.toLocaleDateString("es-AR", { weekday: "long", day: "numeric", month: "long" })}
       </p>
 
       {!appointments || appointments.length === 0 ? (
         <EmptyState
+          icon={<CalendarBlank size={24} weight="regular" />}
           title="Sin turnos hoy"
           description="Cuando te asignen un turno para hoy, va a aparecer acá."
         />
@@ -68,7 +70,7 @@ export default async function MiDiaPage() {
                 </Badge>
               </div>
               <p style={{ margin: "4px 0 0" }}>{a.clients?.full_name ?? "Cliente sin nombre"}</p>
-              <p style={{ margin: 0, color: "var(--ink-soft)", fontSize: 13 }}>
+              <p style={{ margin: 0, color: "var(--color-ink-soft)", fontSize: 13 }}>
                 {a.clients?.phone ?? ""}
               </p>
             </div>

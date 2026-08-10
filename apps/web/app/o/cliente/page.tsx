@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation"
+import { UserCircle, ClockCounterClockwise } from "@phosphor-icons/react/dist/ssr"
 import { createClient } from "@beautycrm/supabase/server"
 import { getCurrentMembership } from "@/lib/session"
 import { EmptyState } from "@beautycrm/ui"
@@ -33,6 +34,7 @@ export default async function MiClientePage() {
       <div>
         <h1>Mi cliente</h1>
         <EmptyState
+          icon={<UserCircle size={24} weight="regular" />}
           title="Sin próximo turno"
           description="Cuando tengas un turno agendado, vas a ver acá el historial de esa persona."
         />
@@ -54,7 +56,7 @@ export default async function MiClientePage() {
       <h1>Mi cliente</h1>
       <div className="card" style={{ marginBottom: 16 }}>
         <h2 style={{ margin: "0 0 4px" }}>{client.full_name}</h2>
-        <p style={{ margin: 0, color: "var(--ink-soft)" }}>{client.phone}</p>
+        <p style={{ margin: 0, color: "var(--color-ink-soft)" }}>{client.phone}</p>
         {client.notes ? <p style={{ marginTop: 8 }}>{client.notes}</p> : null}
       </div>
 
@@ -62,6 +64,7 @@ export default async function MiClientePage() {
         <h3>Historial</h3>
         {!history || history.length === 0 ? (
           <EmptyState
+            icon={<ClockCounterClockwise size={24} weight="regular" />}
             title="Sin historial todavía"
             description="Las notas técnicas que cargues acá van a quedar guardadas para la próxima vez."
           />
