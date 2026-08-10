@@ -62,8 +62,9 @@ function LoginForm() {
 
   if (sent) {
     return (
-      <div className="container" style={{ maxWidth: 420 }}>
-        <div className="card">
+      <div className="auth-shell">
+        <AuthBrand />
+        <div className="card" style={{ maxWidth: 420, width: "100%" }}>
           <h1>Revisá tu email</h1>
           <p>
             Te mandamos un link de acceso a <strong>{email}</strong>. Tocalo
@@ -75,8 +76,9 @@ function LoginForm() {
   }
 
   return (
-    <div className="container" style={{ maxWidth: 420 }}>
-      <div className="card">
+    <div className="auth-shell">
+      <AuthBrand />
+      <div className="card" style={{ maxWidth: 420, width: "100%" }}>
         <h1>Entrar a BeautyCRM</h1>
         {error ? <p className="error-banner">{error}</p> : null}
 
@@ -96,7 +98,7 @@ function LoginForm() {
           </Button>
         </form>
 
-        <div style={{ margin: "16px 0", textAlign: "center", color: "var(--ink-soft)" }}>
+        <div style={{ margin: "16px 0", textAlign: "center", color: "var(--color-ink-soft)" }}>
           o
         </div>
 
@@ -110,6 +112,16 @@ function LoginForm() {
           Continuar con Google
         </Button>
       </div>
+    </div>
+  )
+}
+
+function AuthBrand() {
+  return (
+    <div className="auth-brand">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src="/icons/icon-192.png" alt="" />
+      <span>BeautyCRM</span>
     </div>
   )
 }

@@ -115,6 +115,35 @@ a {
   padding: var(--space-6) var(--space-4);
 }
 
+.auth-shell {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-6);
+  padding: var(--space-6) var(--space-4);
+  background: var(--color-bg);
+}
+
+.auth-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.auth-brand img {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-sm);
+}
+
+.auth-brand span {
+  font: var(--text-h3);
+  color: var(--color-ink);
+}
+
 /* Card */
 
 .card {
