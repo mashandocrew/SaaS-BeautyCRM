@@ -13,17 +13,19 @@ export function Field({
   htmlFor,
   children,
   hint,
+  error,
 }: {
   label: string
   htmlFor: string
   children: ReactNode
   hint?: string
+  error?: string
 }) {
   return (
     <div className="field">
       <Label htmlFor={htmlFor}>{label}</Label>
       {children}
-      {hint ? <p className="field-hint">{hint}</p> : null}
+      {error ? <p className="field-error">{error}</p> : hint ? <p className="field-hint">{hint}</p> : null}
     </div>
   )
 }
