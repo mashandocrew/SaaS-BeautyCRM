@@ -4,6 +4,13 @@ import { getCurrentMembership } from "@/lib/session"
 import { EmptyState } from "@beautycrm/ui"
 import { NoteForm } from "./NoteForm"
 
+type HistoryRow = {
+  id: string
+  performed_at: string
+  technical_notes: string | null
+  services: { name: string } | null
+}
+
 export default async function MiClientePage() {
   const { user, membership } = await getCurrentMembership()
   if (!user || !membership) redirect("/login")
@@ -60,7 +67,7 @@ export default async function MiClientePage() {
           />
         ) : (
           <ul style={{ paddingLeft: 16 }}>
-            {history.map((h) => (
+            {history.map((h: HistoryRow) => (
               <li key={h.id} style={{ marginBottom: 8 }}>
                 <strong>{new Date(h.performed_at).toLocaleDateString("es-AR")}</strong>
                 {h.services?.name ? ` — ${h.services.name}` : ""}

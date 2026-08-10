@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation"
 import { getCurrentMembership } from "@/lib/session"
-import { getDashboardData } from "./queries"
+import { getDashboardData, type AppointmentRow, type StockAlertRow } from "./queries"
 import { StatTile, Badge, EmptyState } from "@beautycrm/ui"
 
 const STATUS_LABEL: Record<string, string> = {
@@ -65,7 +65,7 @@ export default async function DashboardPage() {
               </tr>
             </thead>
             <tbody>
-              {data.todayAppointments.map((a) => (
+              {data.todayAppointments.map((a: AppointmentRow) => (
                 <tr key={a.id}>
                   <td>{formatTime(a.starts_at)}</td>
                   <td>{a.clients?.full_name ?? "—"}</td>
@@ -100,7 +100,7 @@ export default async function DashboardPage() {
               </tr>
             </thead>
             <tbody>
-              {data.stockAlerts.map((item, i) => (
+              {data.stockAlerts.map((item: StockAlertRow, i: number) => (
                 <tr key={i}>
                   <td>{item.branches?.name ?? "—"}</td>
                   <td>{item.item_type === "supply" ? "Insumo" : "Producto"}</td>

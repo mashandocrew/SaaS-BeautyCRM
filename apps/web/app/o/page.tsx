@@ -3,6 +3,14 @@ import { createClient } from "@beautycrm/supabase/server"
 import { getCurrentMembership } from "@/lib/session"
 import { Badge, EmptyState } from "@beautycrm/ui"
 
+type AppointmentRow = {
+  id: string
+  starts_at: string
+  ends_at: string
+  status: string
+  clients: { id: string; full_name: string; phone: string | null } | null
+}
+
 const STATUS_LABEL: Record<string, string> = {
   booked: "Reservado",
   confirmed: "Confirmado",
@@ -51,7 +59,7 @@ export default async function MiDiaPage() {
         />
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {appointments.map((a) => (
+          {appointments.map((a: AppointmentRow) => (
             <div key={a.id} className="card">
               <div style={{ display: "flex", justifyContent: "space-between" }}>
                 <strong>{formatTime(a.starts_at)}</strong>

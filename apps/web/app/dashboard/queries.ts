@@ -17,7 +17,7 @@ function startOfMonthISO(d: Date) {
   return new Date(d.getFullYear(), d.getMonth(), 1).toISOString()
 }
 
-type AppointmentRow = {
+export type AppointmentRow = {
   id: string
   starts_at: string
   status: string
@@ -25,7 +25,7 @@ type AppointmentRow = {
   users: { full_name: string | null } | null
 }
 
-type StockAlertRow = {
+export type StockAlertRow = {
   item_id: string
   item_type: string
   current_stock: number
@@ -84,10 +84,16 @@ export async function getDashboardData(tenantId: string) {
         .returns<CommissionAmountRow[]>(),
     ])
 
-  const todayRevenue = (todaySales.data ?? []).reduce((sum, s) => sum + Number(s.total), 0)
-  const monthRevenue = (monthSales.data ?? []).reduce((sum, s) => sum + Number(s.total), 0)
+  const todayRevenue = (todaySales.data ?? []).reduce(
+    (sum: number, s: SaleTotalRow) => sum + Number(s.total),
+    0
+  )
+  const monthRevenue = (monthSales.data ?? []).reduce(
+    (sum: number, s: SaleTotalRow) => sum + Number(s.total),
+    0
+  )
   const monthCommissionsTotal = (monthCommissions.data ?? []).reduce(
-    (sum, c) => sum + Number(c.amount),
+    (sum: number, c: CommissionAmountRow) => sum + Number(c.amount),
     0
   )
 
@@ -97,7 +103,8 @@ export async function getDashboardData(tenantId: string) {
   // client-side abajo comparando ambas columnas (Postgrest no compara dos
   // columnas entre sí en un solo .lte()).
   const stockAlerts = (lowStock.data ?? []).filter(
-    (item) => item.branches?.tenant_id === tenantId && item.current_stock <= item.min_alert_level
+    (item: StockAlertRow) =>
+      item.branches?.tenant_id === tenantId && item.current_stock <= item.min_alert_level
   )
 
   return {

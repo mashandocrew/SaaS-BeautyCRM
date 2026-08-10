@@ -377,7 +377,7 @@ function StepTeam({
       .from("commission_rules")
       .select("id, name")
       .eq("tenant_id", ctx.tenantId)
-      .then(({ data }) => {
+      .then(({ data }: { data: { id: string; name: string }[] | null }) => {
         if (data) {
           setRules(data)
           setCommissionRuleId(data[0]?.id ?? "")
@@ -514,12 +514,18 @@ function StepFirstAppointment({
       .from("services")
       .select("id, name, duration_minutes")
       .eq("tenant_id", ctx.tenantId)
-      .then(({ data }) => {
-        if (data) {
-          setServices(data)
-          setServiceId(data[0]?.id ?? "")
+      .then(
+        ({
+          data,
+        }: {
+          data: { id: string; name: string; duration_minutes: number }[] | null
+        }) => {
+          if (data) {
+            setServices(data)
+            setServiceId(data[0]?.id ?? "")
+          }
         }
-      })
+      )
 
     const tomorrow = new Date()
     tomorrow.setDate(tomorrow.getDate() + 1)
