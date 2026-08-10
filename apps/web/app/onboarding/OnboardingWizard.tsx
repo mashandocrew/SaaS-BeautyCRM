@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from "react"
 import { useRouter } from "next/navigation"
+import { CheckCircle, Scissors, CalendarBlank } from "@phosphor-icons/react"
 import { Button, Field, Input, EmptyState } from "@beautycrm/ui"
 import {
   provisionTenant,
@@ -79,7 +80,7 @@ export function OnboardingWizard() {
           <span key={i} data-done={i <= step} />
         ))}
       </div>
-      <p style={{ color: "var(--ink-soft)", fontSize: 13, marginTop: -12 }}>
+      <p style={{ color: "var(--color-ink-soft)", fontSize: 13, marginTop: -12 }}>
         Paso {step + 1} de {TOTAL_STEPS}
       </p>
 
@@ -162,7 +163,7 @@ function StepBusinessName({
   return (
     <div className="card">
       <h1>¿Cómo se llama tu negocio?</h1>
-      <p style={{ color: "var(--ink-soft)" }}>
+      <p style={{ color: "var(--color-ink-soft)" }}>
         Precio promocional $40/mes durante 90 días, después $100/mes.
       </p>
       <form onSubmit={handleSubmit}>
@@ -212,7 +213,7 @@ function StepIdentity({
   return (
     <div className="card">
       <h1>Identidad del negocio</h1>
-      <p style={{ color: "var(--ink-soft)" }}>Todo esto lo podés editar después.</p>
+      <p style={{ color: "var(--color-ink-soft)" }}>Todo esto lo podés editar después.</p>
       <form onSubmit={handleSubmit}>
         <Field label="Horario de atención" htmlFor="hours">
           <Input id="hours" value={hours} onChange={(e) => setHours(e.target.value)} />
@@ -277,7 +278,7 @@ function StepServices({
     return (
       <div className="card">
         <h1>¿A qué rubro te dedicás?</h1>
-        <p style={{ color: "var(--ink-soft)" }}>
+        <p style={{ color: "var(--color-ink-soft)" }}>
           Te sugerimos servicios típicos con precio de referencia — los editás vos.
         </p>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -294,7 +295,7 @@ function StepServices({
   return (
     <div className="card">
       <h1>Servicios de {rubro}</h1>
-      <p style={{ color: "var(--ink-soft)" }}>Borrá lo que no ofrecés, ajustá precios.</p>
+      <p style={{ color: "var(--color-ink-soft)" }}>Borrá lo que no ofrecés, ajustá precios.</p>
       <table>
         <thead>
           <tr>
@@ -342,6 +343,7 @@ function StepServices({
       </table>
       {services.length === 0 ? (
         <EmptyState
+          icon={<Scissors size={24} weight="regular" />}
           title="Sin servicios"
           description="Podés continuar igual y cargarlos después desde el dashboard."
         />
@@ -409,14 +411,26 @@ function StepTeam({
   return (
     <div className="card">
       <h1>¿Quién trabaja con vos?</h1>
-      <p style={{ color: "var(--ink-soft)" }}>
+      <p style={{ color: "var(--color-ink-soft)" }}>
         Le mandamos un link de acceso — sin contraseñas — por email o WhatsApp.
       </p>
 
       {invited.length > 0 ? (
-        <ul>
+        <ul style={{ listStyle: "none", padding: 0, display: "flex", flexDirection: "column", gap: 4 }}>
           {invited.map((e) => (
-            <li key={e}>✓ Invitada: {e}</li>
+            <li
+              key={e}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "var(--space-2)",
+                color: "var(--color-success)",
+                fontSize: 14,
+              }}
+            >
+              <CheckCircle size={16} weight="fill" />
+              Invitada: {e}
+            </li>
           ))}
         </ul>
       ) : null}
@@ -560,6 +574,7 @@ function StepFirstAppointment({
     return (
       <div className="card">
         <EmptyState
+          icon={<CalendarBlank size={24} weight="regular" />}
           title="Todavía no cargaste servicios"
           description="Volvé al paso anterior o cargalos después desde el dashboard."
           action={
@@ -575,7 +590,7 @@ function StepFirstAppointment({
   return (
     <div className="card">
       <h1>Cargá tu primer turno</h1>
-      <p style={{ color: "var(--ink-soft)" }}>Último paso — ¡ya casi!</p>
+      <p style={{ color: "var(--color-ink-soft)" }}>Último paso — ¡ya casi!</p>
       <form onSubmit={handleSubmit}>
         <Field label="Cliente" htmlFor="clientName">
           <Input
