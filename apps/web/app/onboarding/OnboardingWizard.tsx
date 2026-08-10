@@ -173,7 +173,7 @@ function StepBusinessName({
             required
             value={businessName}
             onChange={(e) => setBusinessName(e.target.value)}
-            placeholder="Jacintas Nails"
+            placeholder="Nombre del negocio o sucursal"
           />
         </Field>
         <Button type="submit" disabled={loading} style={{ width: "100%" }}>
