@@ -338,6 +338,211 @@ a {
   color: var(--color-danger);
 }
 
+/* App shell — dueño (sidebar + contenido) */
+
+.app-shell {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  min-height: 100dvh;
+}
+
+.sidebar {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-6) var(--space-3);
+  position: sticky;
+  top: 0;
+  height: 100dvh;
+  overflow-y: auto;
+}
+
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 0 var(--space-2) var(--space-6);
+  margin-bottom: var(--space-2);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.sidebar-brand img {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+}
+
+.sidebar-brand-name {
+  font: var(--text-h3);
+  color: var(--color-on-primary);
+  line-height: 1.2;
+}
+
+.sidebar-brand-sub {
+  font: var(--text-micro);
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.5);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sidebar-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 10px var(--space-3);
+  border-radius: var(--radius-sm);
+  font: var(--text-small);
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.72);
+  text-decoration: none;
+  border-left: 3px solid transparent;
+  transition: background var(--duration-fast) var(--easing-out),
+    color var(--duration-fast) var(--easing-out);
+}
+
+.sidebar-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--color-on-primary);
+}
+
+.sidebar-item[data-active="true"] {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--color-on-primary);
+  font-weight: 600;
+  border-left-color: var(--color-accent);
+}
+
+.sidebar-item[data-soon="true"] {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.sidebar-item[data-soon="true"]:hover {
+  background: transparent;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.sidebar-soon-badge {
+  margin-left: auto;
+  font: var(--text-micro);
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.45);
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-full);
+  padding: 2px 8px;
+}
+
+.sidebar-footer {
+  margin-top: auto;
+  padding-top: var(--space-4);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.sidebar-footer-name {
+  font: var(--text-small);
+  font-weight: 600;
+  color: var(--color-on-primary);
+  margin: 0;
+}
+
+.sidebar-footer-role {
+  font: var(--text-micro);
+  font-weight: 400;
+  text-transform: none;
+  color: rgba(255, 255, 255, 0.5);
+  margin: 0;
+}
+
+.app-main {
+  min-width: 0;
+}
+
+.app-topbar {
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface);
+  padding: var(--space-3) var(--space-6);
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.branch-pill {
+  background: var(--color-success-bg);
+  color: var(--color-success);
+  font: var(--text-small);
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: var(--radius-full);
+}
+
+@media (max-width: 900px) {
+  .app-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    position: static;
+    height: auto;
+    flex-direction: row;
+    align-items: center;
+    overflow-x: auto;
+    padding: var(--space-3);
+  }
+
+  .sidebar-brand {
+    border-bottom: none;
+    border-right: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 0 var(--space-4) 0 var(--space-2);
+    margin-bottom: 0;
+    flex-shrink: 0;
+  }
+
+  .sidebar-brand-name,
+  .sidebar-brand-sub {
+    display: none;
+  }
+
+  .sidebar-nav {
+    flex-direction: row;
+    padding-left: var(--space-3);
+  }
+
+  .sidebar-item {
+    flex-shrink: 0;
+    border-left: none;
+    border-bottom: 3px solid transparent;
+  }
+
+  .sidebar-item[data-active="true"] {
+    border-left-color: transparent;
+    border-bottom-color: var(--color-accent);
+  }
+
+  .sidebar-item span.sidebar-item-label {
+    display: none;
+  }
+
+  .sidebar-soon-badge {
+    display: none;
+  }
+
+  .sidebar-footer {
+    display: none;
+  }
+}
+
 /* Navigation — bottom nav (PWA operadora) */
 
 .nav-bottom {
