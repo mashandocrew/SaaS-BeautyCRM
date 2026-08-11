@@ -12,6 +12,8 @@ export type Json =
   | Json[]
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
@@ -39,6 +41,13 @@ export type Database = {
             columns: ["appointment_id"]
             isOneToOne: false
             referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointment_services_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "v_agenda"
             referencedColumns: ["id"]
           },
           {
@@ -273,6 +282,13 @@ export type Database = {
             columns: ["appointment_id"]
             isOneToOne: false
             referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_history_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "v_agenda"
             referencedColumns: ["id"]
           },
           {
@@ -692,6 +708,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "sales_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "v_agenda"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "sales_branch_id_fkey"
             columns: ["branch_id"]
             isOneToOne: false
@@ -893,9 +916,72 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      v_agenda: {
+        Row: {
+          branch_id: string | null
+          client_id: string | null
+          client_name: string | null
+          client_phone: string | null
+          ends_at: string | null
+          google_event_id: string | null
+          id: string | null
+          operator_id: string | null
+          operator_name: string | null
+          services: Json | null
+          source: Database["public"]["Enums"]["appointment_source"] | null
+          starts_at: string | null
+          status: Database["public"]["Enums"]["appointment_status"] | null
+          tenant_id: string | null
+          total_price: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appointments_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointments_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointments_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointments_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
+      book_appointment: {
+        Args: {
+          p_branch_id: string
+          p_client_id: string
+          p_operator_id: string
+          p_service_ids: string[]
+          p_source?: Database["public"]["Enums"]["appointment_source"]
+          p_starts_at: string
+        }
+        Returns: {
+          appointment_id: string
+          ends_at: string
+          starts_at: string
+        }[]
+      }
       provision_tenant: {
         Args: {
           p_branch_name?: string
@@ -1055,3 +1141,32 @@ export type CompositeTypes<
   : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
     ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
     : never
+
+export const Constants = {
+  public: {
+    Enums: {
+      appointment_source: ["internal", "google", "online_booking"],
+      appointment_status: [
+        "booked",
+        "confirmed",
+        "in_progress",
+        "done",
+        "no_show",
+        "cancelled",
+      ],
+      inventory_item_type: ["supply", "product"],
+      membership_role: ["owner", "supervisor", "operator"],
+      payment_method: ["cash", "card", "transfer", "mp", "other"],
+      sale_item_type: ["service", "product"],
+      subscription_status: [
+        "trial",
+        "promo",
+        "active",
+        "past_due",
+        "cancelled",
+      ],
+      supply_unit: ["ml", "gr", "unit"],
+      tenant_mode: ["single", "multi"],
+    },
+  },
+} as const
