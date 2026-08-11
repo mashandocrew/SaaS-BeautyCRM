@@ -25,7 +25,7 @@ type NavItem = {
 
 const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard", label: "Panel de control", icon: SquaresFour, implemented: true },
-  { href: "/dashboard/agenda", label: "Agenda", icon: CalendarBlank, implemented: false },
+  { href: "/dashboard/agenda", label: "Agenda", icon: CalendarBlank, implemented: true },
   { href: "/dashboard/clientes", label: "Clientes", icon: Users, implemented: false },
   { href: "/dashboard/servicios", label: "Servicios", icon: Scissors, implemented: false },
   { href: "/dashboard/inventario", label: "Inventario", icon: Package, implemented: false },
