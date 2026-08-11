@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Badge, Button } from "@beautycrm/ui"
 import type { AgendaAppointment, AgendaStatus } from "@/lib/agenda-types"
@@ -34,6 +34,16 @@ export function MiDiaList({
   const [appointments, setAppointments] = useState(initialAppointments)
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [loadingId, setLoadingId] = useState<string | null>(null)
+
+  // El estado local es un espejo optimista de initialAppointments, pero
+  // useState solo lee el inicializador en el primer mount: sin este efecto,
+  // cada router.refresh() (disparado por useAgendaRealtime o al final de
+  // changeStatus) traería un prop nuevo del servidor que quedaría descartado
+  // en silencio, y la pantalla se desincronizaría de cambios hechos desde
+  // otro lado (ej. el dueño editando el mismo turno desde /dashboard/agenda).
+  useEffect(() => {
+    setAppointments(initialAppointments)
+  }, [initialAppointments])
 
   useAgendaRealtime(tenantId, () => router.refresh())
 
