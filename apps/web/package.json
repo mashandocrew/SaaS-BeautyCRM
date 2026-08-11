@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "test:e2e": "playwright test tests/e2e",
-    "test:security": "tsx --env-file=.env.local tests/security/tenant-isolation.test.ts"
+    "test:security": "tsx --env-file=.env.local tests/security/tenant-isolation.test.ts",
+    "test:agenda": "tsx --env-file=.env.local tests/security/agenda-behavior.test.ts"
   },
   "dependencies": {
     "@beautycrm/supabase": "workspace:*",

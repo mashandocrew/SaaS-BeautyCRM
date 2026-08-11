@@ -11,6 +11,7 @@
     "lint": "pnpm -r --if-present run lint",
     "test:e2e": "pnpm --filter @beautycrm/web test:e2e",
     "test:security": "pnpm --filter @beautycrm/web test:security",
+    "test:agenda": "pnpm --filter @beautycrm/web test:agenda",
     "types:generate": "supabase gen types typescript --project-id xhbrhpfzehshiyjzlxnx --schema public > packages/supabase/src/types.ts"
   }
 }
