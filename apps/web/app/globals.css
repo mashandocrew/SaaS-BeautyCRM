@@ -682,3 +682,272 @@ tbody tr {
 tbody tr:hover {
   background: var(--color-bg);
 }
+
+/* ===========================================================================
+   Módulo Agenda
+   =========================================================================== */
+
+/* Sheet (drawer / bottom-sheet) */
+
+.sheet-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(36, 31, 26, 0.4);
+  display: flex;
+  justify-content: flex-end;
+  z-index: 50;
+}
+
+.sheet-panel {
+  background: var(--color-surface);
+  box-shadow: var(--shadow-md);
+  display: flex;
+  flex-direction: column;
+  max-height: 100dvh;
+  overflow-y: auto;
+}
+
+.sheet-panel-right {
+  width: min(420px, 100%);
+  height: 100dvh;
+}
+
+.sheet-panel-bottom {
+  width: 100%;
+  max-height: 85dvh;
+  align-self: flex-end;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+
+.sheet-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-4) var(--space-6);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.sheet-header h2 {
+  margin: 0;
+}
+
+.sheet-close {
+  background: none;
+  border: none;
+  color: var(--color-ink-soft);
+  cursor: pointer;
+  padding: var(--space-1);
+  display: flex;
+}
+
+.sheet-body {
+  padding: var(--space-6);
+}
+
+@media (max-width: 640px) {
+  .sheet-overlay {
+    align-items: flex-end;
+  }
+
+  .sheet-panel-right {
+    width: 100%;
+    height: auto;
+    max-height: 85dvh;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  }
+}
+
+/* Grilla de agenda (Dueño/Supervisor) */
+
+.agenda-grid {
+  display: grid;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow-x: auto;
+  background: var(--color-surface);
+}
+
+.agenda-grid-corner {
+  border-bottom: 1px solid var(--color-border);
+  border-right: 1px solid var(--color-border);
+  background: var(--color-bg);
+}
+
+.agenda-grid-header {
+  padding: var(--space-2);
+  font: var(--text-small);
+  font-weight: 600;
+  text-align: center;
+  border-bottom: 1px solid var(--color-border);
+  border-right: 1px solid var(--color-border);
+  background: var(--color-bg);
+}
+
+.agenda-grid-time {
+  padding: var(--space-1) var(--space-2);
+  font: var(--text-micro);
+  color: var(--color-ink-soft);
+  border-right: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
+  text-align: right;
+}
+
+.agenda-grid-slot {
+  border-bottom: 1px solid var(--color-border);
+  border-right: 1px solid var(--color-border);
+  background: none;
+  min-height: 22px;
+  cursor: pointer;
+  padding: 0;
+}
+
+.agenda-grid-slot:hover {
+  background: var(--color-bg);
+}
+
+.agenda-grid-appointment {
+  margin: 2px;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-primary);
+  background: var(--color-success-bg);
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow: hidden;
+  font: var(--text-small);
+  position: relative;
+  z-index: 1;
+}
+
+.agenda-grid-appointment-time {
+  font-weight: 700;
+}
+
+.agenda-grid-appointment-services {
+  color: var(--color-ink-soft);
+  font: var(--text-micro);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.agenda-empty-hint {
+  color: var(--color-ink-soft);
+  padding: var(--space-6);
+  text-align: center;
+}
+
+/* Modal de nuevo turno */
+
+.agenda-selected-client {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-3);
+}
+
+.agenda-client-results {
+  list-style: none;
+  margin: var(--space-1) 0 0;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.agenda-client-results li button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-surface);
+  border: none;
+  cursor: pointer;
+  font: var(--text-small);
+}
+
+.agenda-client-results li button:hover {
+  background: var(--color-bg);
+}
+
+.agenda-quick-create-toggle {
+  margin-top: var(--space-2);
+  background: none;
+  border: none;
+  color: var(--color-primary);
+  font: var(--text-small);
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+}
+
+.agenda-quick-create {
+  margin-top: var(--space-3);
+  padding: var(--space-3);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
+.agenda-service-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.agenda-service-option {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font: var(--text-small);
+}
+
+.agenda-preview {
+  font: var(--text-small);
+  color: var(--color-ink-soft);
+  margin: 0 0 var(--space-4);
+}
+
+.agenda-detail-time {
+  font: var(--text-h3);
+  margin: 0 0 var(--space-2);
+}
+
+/* Navegación de días (Dueño/Supervisor) */
+
+.agenda-day-tabs {
+  display: flex;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+  overflow-x: auto;
+}
+
+.agenda-day-tab {
+  flex-shrink: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  font: var(--text-small);
+  cursor: pointer;
+}
+
+.agenda-day-tab[data-active="true"] {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-on-primary);
+  font-weight: 600;
+}
+
+/* Mi día — estados de turno (operadora) */
+
+.agenda-status-actions {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  flex-wrap: wrap;
+}
