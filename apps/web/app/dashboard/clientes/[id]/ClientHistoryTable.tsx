@@ -75,6 +75,11 @@ export function ClientHistoryTable({ history }: { history: ClientHistoryEntry[] 
                 <button
                   type="button"
                   onClick={() => startEdit(entry)}
+                  aria-label={
+                    entry.technical_notes
+                      ? undefined
+                      : `Agregar nota — ${formatVisitDate(entry.performed_at)}, ${entry.service_name ?? "Nota"}`
+                  }
                   style={{
                     background: "none",
                     border: "none",
