@@ -1,0 +1,78 @@
+"use client"
+
+import { useState } from "react"
+import { useRouter } from "next/navigation"
+import { Button } from "@beautycrm/ui"
+import { updateHistoryNotes } from "@/lib/client-actions"
+import type { ClientHistoryEntry } from "@/lib/client-types"
+
+export function ClientHistoryTable({ history }: { history: ClientHistoryEntry[] }) {
+  const router = useRouter()
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [draft, setDraft] = useState("")
+  const [savingId, setSavingId] = useState<string | null>(null)
+
+  function startEdit(entry: ClientHistoryEntry) {
+    setEditingId(entry.id)
+    setDraft(entry.technical_notes ?? "")
+  }
+
+  async function save(entryId: string) {
+    setSavingId(entryId)
+    const result = await updateHistoryNotes(entryId, draft)
+    setSavingId(null)
+    if (!result.ok) return
+    setEditingId(null)
+    router.refresh()
+  }
+
+  return (
+    <table>
+      <thead>
+        <tr>
+          <th>Fecha</th>
+          <th>Servicio</th>
+          <th>Operadora</th>
+          <th>Nota técnica</th>
+        </tr>
+      </thead>
+      <tbody>
+        {history.map((entry) => (
+          <tr key={entry.id}>
+            <td>{new Date(entry.performed_at).toLocaleDateString("es-AR")}</td>
+            {/* service_name puede ser null: apps/web/app/o/cliente/actions.ts
+                inserta notas de la operadora sin servicio asociado (ver
+                spec, sección "Dato real: addTechnicalNote existente"). */}
+            <td>{entry.service_name ?? "Nota"}</td>
+            <td>{entry.operator_name ?? "—"}</td>
+            <td>
+              {editingId === entry.id ? (
+                <div style={{ display: "flex", gap: "var(--space-2)", alignItems: "flex-start" }}>
+                  <textarea className="input" rows={2} value={draft} onChange={(e) => setDraft(e.target.value)} />
+                  <Button type="button" onClick={() => save(entry.id)} disabled={savingId === entry.id}>
+                    {savingId === entry.id ? "Guardando..." : "Guardar"}
+                  </Button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => startEdit(entry)}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    textAlign: "left",
+                    cursor: "pointer",
+                    padding: 0,
+                    font: "var(--text-small)",
+                  }}
+                >
+                  {entry.technical_notes ?? <span style={{ color: "var(--color-ink-soft)" }}>Agregar nota</span>}
+                </button>
+              )}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  )
+}
