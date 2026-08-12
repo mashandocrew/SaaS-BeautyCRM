@@ -81,7 +81,7 @@ left join branches b on b.id = ch.branch_id;
 
 **Lecturas** (Server Components):
 - `getClients(tenantId)` — todos los clientes del tenant, ordenados por nombre. Sin paginación server-side: el filtro es instantáneo en cliente (mismo patrón que `MiDiaList` de Agenda), consistente con la escala actual. Paginar es un cambio aislado a esta función si algún tenant crece mucho — no se resuelve ahora.
-- `getClientDetail(tenantId, clientId)` — cliente + su historial vía `v_client_history` (ordenado por `performed_at desc`) + resumen calculado: **visitas** = cantidad de `appointment_id` **distintos** en el historial (no filas crudas — una fila es un servicio, no una visita), **última visita** = `max(performed_at)`. Si el cliente no existe o no pertenece al tenant, RLS ya lo filtra fuera → 404 (`notFound()`).
+- `getClientDetail(tenantId, clientId)` — cliente + su historial vía `v_client_history` (ordenado por `performed_at desc`) + resumen calculado: **visitas** = cantidad de `appointment_id` **distintos** en el historial (no filas crudas — una fila es un servicio, no una visita), **última visita** = `max(performed_at)` entre las filas con `appointment_id` no nulo (mismo filtro que "visitas": una nota suelta de la operadora sin turno real asociado no cuenta como visita). Si el cliente no existe o no pertenece al tenant, RLS ya lo filtra fuera → 404 (`notFound()`).
 
 **Mutaciones** (Server Actions, patrón `ActionResult<T>` establecido en `lib/agenda-actions.ts`):
 - `createClient`, `updateClient`, `deleteClient` en `lib/client-actions.ts` (archivo nuevo).

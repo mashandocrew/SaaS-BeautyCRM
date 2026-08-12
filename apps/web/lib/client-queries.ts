@@ -36,17 +36,21 @@ export async function getClientDetail(tenantId: string, clientId: string): Promi
   // "Visitas" cuenta appointment_id DISTINTOS, no filas crudas: un turno
   // con 2 servicios genera 2 filas en client_history (una por servicio),
   // y contarlas tal cual infla la cifra respecto a lo que el dueño espera
-  // ver como "cuántas veces vino".
-  const distinctAppointments = new Set(
-    history.map((h) => h.appointment_id).filter((id): id is string => id !== null)
-  )
+  // ver como "cuántas veces vino". Las filas con appointment_id NULL son
+  // notas sueltas de la operadora (no turnos reales) y no cuentan como
+  // visita — mismo filtro que usamos abajo para "última visita", para que
+  // ambos StatTile coincidan en qué es "una visita".
+  const realVisits = history.filter((h) => h.appointment_id !== null)
+  const distinctAppointments = new Set(realVisits.map((h) => h.appointment_id))
 
   return {
     client,
     history,
     summary: {
       visitCount: distinctAppointments.size,
-      lastVisitAt: history.length > 0 ? history[0].performed_at : null,
+      // history ya viene ordenado por performed_at desc (ver query arriba),
+      // así que realVisits[0] es la fila de turno real más reciente.
+      lastVisitAt: realVisits.length > 0 ? realVisits[0].performed_at : null,
     },
   }
 }
