@@ -39,7 +39,7 @@ La spec listaba `deleteService` entre las acciones pero no le daba lugar en la U
 | `apps/web/app/dashboard/servicios/page.tsx` | Server Component: sesión → `getServices` → `ServicesList`. |
 | `apps/web/app/dashboard/servicios/ServicesList.tsx` | Agrupado por categoría en memoria, una tabla por grupo, toggle por fila, apertura del Sheet en ambos modos. |
 | `apps/web/app/dashboard/servicios/ServiceFormSheet.tsx` | Form alta/edición + borrado (owner). Única pieza que llama a `createService`/`updateService`/`deleteService`. |
-| `apps/web/app/globals.css` | Única adición: la clase `.link-button` (nombre de servicio clickeable que abre un panel en vez de navegar). |
+| `apps/web/app/globals.css` | Adiciones: la clase `.link-button` (nombre de servicio clickeable que abre un panel en vez de navegar) y `.checkbox` (ring de foco tokenizado en los dos checkboxes nativos del módulo). |
 | `apps/web/tests/security/servicios-behavior.test.ts` | Invariantes de RLS y de FK a nivel datos. |
 | `apps/web/tests/e2e/servicios.spec.ts` | Recorrido completo en el browser, incluido el cruce a Agenda. |
 
@@ -669,7 +669,7 @@ git commit -m "feat(web): capa de datos del módulo Servicios — tipos, query y
 **Files:**
 - Create: `apps/web/app/dashboard/servicios/ServiceFormSheet.tsx`
 - Create: `apps/web/app/dashboard/servicios/ServicesList.tsx`
-- Modify: `apps/web/app/globals.css` (agregar `.link-button` al final del bloque `/* Table */`, que hoy termina en la línea 683)
+- Modify: `apps/web/app/globals.css` (agregar `.link-button` y `.checkbox` al final del bloque `/* Table */`, que hoy termina en la línea 683)
 - Modify: `apps/web/app/dashboard/servicios/page.tsx` (reemplaza el `ComingSoon` actual, 5 líneas)
 - Modify: `apps/web/components/Sidebar.tsx:30` (`implemented: false` → `true`)
 
@@ -839,6 +839,7 @@ export function ServiceFormSheet({
           <input
             id="service-active"
             type="checkbox"
+            className="checkbox"
             checked={isActive}
             onChange={(e) => setIsActive(e.target.checked)}
           />
@@ -988,6 +989,7 @@ export function ServicesList({
                       <input
                         type="checkbox"
                         role="switch"
+                        className="checkbox"
                         checked={s.is_active}
                         disabled={pendingId === s.id}
                         aria-label={`Servicio activo: ${s.name}`}
@@ -1016,9 +1018,11 @@ export function ServicesList({
 }
 ```
 
-- [ ] **Step 3: Agregar la clase `.link-button` a `apps/web/app/globals.css`**
+- [ ] **Step 3: Agregar las clases `.link-button` y `.checkbox` a `apps/web/app/globals.css`**
 
 `ServicesList` abre el Sheet de edición desde el nombre del servicio. En Clientes ese nombre es un `<Link>` a la ficha, pero acá no hay ruta de detalle: tiene que ser un `<button>` que *parezca* un link. Esa clase todavía no existe en el design system — hay que agregarla.
+
+Los dos checkboxes nativos del módulo (el campo "Activo" del Sheet y el toggle `role="switch"` de cada fila) también necesitan una clase — sin ella caen en el outline por defecto del navegador en vez del ring tokenizado, igual que `.link-button`, `.btn` e `.input`.
 
 Al final del bloque `/* Table */` de `globals.css` (después de la regla `tbody tr:hover`, hoy línea 683, justo antes del comentario `Módulo Agenda`), agregar:
 
@@ -1044,9 +1048,27 @@ Al final del bloque `/* Table */` de `globals.css` (después de la regla `tbody 
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;
 }
+
+/* Checkbox / switch nativo: hereda el ring de foco tokenizado igual que
+   .btn, .input y .link-button. La sección 9 del design system exige foco
+   visible en todos los controles interactivos, no solo en los botones. */
+.checkbox {
+  accent-color: var(--color-primary);
+  cursor: pointer;
+}
+
+.checkbox:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.checkbox:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
 ```
 
-El `:focus-visible` no es opcional: la sección 9 del design system exige ring de foco visible de 2px en `--color-accent` con offset 2px en **todos** los controles interactivos, no solo en los botones primarios.
+El `:focus-visible` no es opcional: la sección 9 del design system exige ring de foco visible de 2px en `--color-accent` con offset 2px en **todos** los controles interactivos, no solo en los botones primarios. Por eso `.checkbox` se aplica a los dos `<input type="checkbox">` del módulo (Step 1 y Step 2), no solo a `.link-button`.
 
 - [ ] **Step 3b: Verificar que compila**
 

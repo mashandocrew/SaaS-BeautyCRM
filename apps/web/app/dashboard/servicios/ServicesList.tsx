@@ -121,6 +121,7 @@ export function ServicesList({
                       <input
                         type="checkbox"
                         role="switch"
+                        className="checkbox"
                         checked={s.is_active}
                         disabled={pendingId === s.id}
                         aria-label={`Servicio activo: ${s.name}`}

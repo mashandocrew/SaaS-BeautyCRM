@@ -150,6 +150,7 @@ export function ServiceFormSheet({
           <input
             id="service-active"
             type="checkbox"
+            className="checkbox"
             checked={isActive}
             onChange={(e) => setIsActive(e.target.checked)}
           />
