@@ -10,7 +10,8 @@
     "test:e2e": "playwright test tests/e2e",
     "test:security": "tsx --env-file=.env.local tests/security/tenant-isolation.test.ts",
     "test:agenda": "tsx --env-file=.env.local tests/security/agenda-behavior.test.ts",
-    "test:clientes": "tsx --env-file=.env.local tests/security/clientes-behavior.test.ts"
+    "test:clientes": "tsx --env-file=.env.local tests/security/clientes-behavior.test.ts",
+    "test:servicios": "tsx --env-file=.env.local tests/security/servicios-behavior.test.ts"
   },
   "dependencies": {
     "@beautycrm/supabase": "workspace:*",
