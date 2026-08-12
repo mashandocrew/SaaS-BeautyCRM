@@ -116,6 +116,12 @@ apps/web/app/dashboard/clientes/ClientFormSheet.tsx — Sheet reutilizable alta/
 
 Sin realtime en este módulo — a diferencia de Agenda, no hace falta reflejar cambios de otra pestaña al instante; `router.refresh()` tras crear/editar/eliminar alcanza.
 
+## Decisión: `updateClient` no tiene chequeo de rol adicional (intencional)
+
+La policy `clients_update` (`0001_initial_schema.sql`) ya permite a **cualquier miembro del tenant** editar un cliente, no solo owner/supervisor — mismo criterio que `clients_insert`, que ya usa `createQuickClient` desde el modal de turno de Agenda. La UI de `/dashboard/clientes` es owner/supervisor-only (`dashboard/layout.tsx` redirige operadoras a `/o`), pero la Server Action `updateClient` en sí no agrega un chequeo de rol propio — una operadora que invocara la action directamente (fuera de la UI) podría editar el registro completo de un cliente, no solo darlo de alta.
+
+Revisado explícitamente en la revisión final de rama y dejado así a propósito: es más eficiente para corregir datos mal cargados (ej. una operadora nota un teléfono mal tipeado y lo arregla sin tener que pedirle al dueño) que agregar fricción con un chequeo de rol. Si en el futuro esto se vuelve un problema real (ediciones no deseadas), la corrección es agregar `app.has_role(tenant_id, array['owner','supervisor'])` dentro de `updateClient` — no requiere tocar RLS.
+
 ## Fuera de alcance (confirmado con el usuario)
 
 - Fotos antes/después (`client_history.photos`, requiere Supabase Storage) — solo notas de texto esta vuelta.
