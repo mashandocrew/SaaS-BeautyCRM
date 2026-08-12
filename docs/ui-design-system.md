@@ -43,6 +43,11 @@ sección.
 - **Motion:** funcional, no decorativo. Este es un software de uso diario en
   contexto de trabajo (salón, mostrador, mobile con las manos ocupadas) — no
   una landing page. Priorizá claridad sobre espectáculo.
+- **Accesibilidad:** no es un extra — es un requisito de cada componente
+  nuevo, no una pasada final. En la práctica: foco de teclado visible en
+  todo elemento interactivo (spec concreta en la sección 9, Botón/Input) y
+  respeto a `prefers-reduced-motion` (spec en la sección 8, Motion). Un
+  módulo nuevo que no cumple esto no está terminado.
 
 ### Dials de diseño (referencia interna, no se exponen al usuario final)
 
@@ -200,10 +205,15 @@ Tintadas hacia el verde de marca, nunca gris neutro puro — a esta densidad
 
 ## 7. Iconografía
 
-**Phosphor** (`@phosphor-icons/react`), peso `regular` exclusivamente
-(trazo ~1.5px). No mezclar con `duotone`, `fill`, ni `bold` en el mismo
-nivel de jerarquía. Tamaños: `16px` (inline con texto small), `20px`
-(default en botones/nav), `24px` (destacado, empty states).
+**Phosphor** (`@phosphor-icons/react`), nunca `duotone`. Peso según tamaño,
+no al gusto de cada componente:
+
+- `20px`–`24px` (default en botones/nav/empty states): peso `regular`.
+- `16px` (flechas de navegación, cerrar de un Sheet, cualquier ícono chico
+  de acción ajustada): peso `bold` — a ese tamaño `regular` pierde
+  legibilidad, `bold` la recupera sin cambiar de familia visual.
+- `fill` solo para marcar un estado ya completado/confirmado (ej. check de
+  paso terminado en el wizard) — nunca como reemplazo genérico de `regular`.
 
 Nunca emoji — ni en código, ni en contenido, ni en alt text.
 
