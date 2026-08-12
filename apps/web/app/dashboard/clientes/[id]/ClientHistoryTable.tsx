@@ -9,10 +9,12 @@ import type { ClientHistoryEntry } from "@/lib/client-types"
 // performed_at es timestamptz (trae zona real), pero toLocaleDateString sin
 // timeZone explícito igual queda a merced de la zona del entorno donde
 // corre (server vs browser) — mismo riesgo de mismatch de hidratación que
-// client.birthday en ClientDetailView.tsx. timeZone: "UTC" lo hace
-// determinístico.
+// client.birthday en ClientDetailView.tsx. Fijamos "America/Argentina/
+// Mendoza" (mismo TZ que next.config.js pinea para todo el proceso), no
+// "UTC": un turno que termina entre las 21:00 y las 23:59 locales cae en
+// el día siguiente en UTC, lo que mostraría la fecha equivocada.
 function formatVisitDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("es-AR", { timeZone: "UTC" })
+  return new Date(iso).toLocaleDateString("es-AR", { timeZone: "America/Argentina/Mendoza" })
 }
 
 export function ClientHistoryTable({ history }: { history: ClientHistoryEntry[] }) {

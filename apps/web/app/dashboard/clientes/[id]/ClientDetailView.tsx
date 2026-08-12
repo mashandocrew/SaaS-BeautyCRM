@@ -27,10 +27,14 @@ function formatBirthday(birthday: string): string {
 // summary.lastVisitAt viene de performed_at (timestamptz): a diferencia de
 // birthday sí trae una zona real, pero toLocaleDateString sin timeZone
 // explícito igual queda a merced de la zona del entorno (server vs
-// browser) → mismo riesgo de hidratación. timeZone: "UTC" lo hace
-// determinístico.
+// browser) → mismo riesgo de hidratación. Fijamos "America/Argentina/
+// Mendoza" (mismo TZ que next.config.js pinea para todo el proceso) en vez
+// de "UTC": performed_at es un instante real, no un date-only como
+// birthday, y un turno que termina entre las 21:00 y las 23:59 locales cae
+// en el día siguiente en UTC — mostrar la fecha en UTC sería tan
+// incorrecto como no fijar ninguna zona.
 function formatVisitDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("es-AR", { timeZone: "UTC" })
+  return new Date(iso).toLocaleDateString("es-AR", { timeZone: "America/Argentina/Mendoza" })
 }
 
 export function ClientDetailView({ tenantId, detail }: { tenantId: string; detail: ClientDetail }) {
