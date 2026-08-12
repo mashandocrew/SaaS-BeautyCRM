@@ -46,7 +46,7 @@ export function ClientesList({ tenantId, clients }: { tenantId: string; clients:
             icon={<Users size={24} weight="regular" />}
             title="Todavía no hay clientes"
             description="Se cargan acá o automáticamente desde el modal de nuevo turno en Agenda."
-            action={<Button onClick={() => setCreateOpen(true)}>Nuevo cliente</Button>}
+            action={<Button onClick={() => setCreateOpen(true)}>Agregar el primer cliente</Button>}
           />
         ) : filtered.length === 0 ? (
           <EmptyState
