@@ -1,15 +1,15 @@
 /**
  * Invariantes del módulo Clientes que conviene chequear a nivel de datos:
  * borrado restringido a owner/supervisor, edición de nota técnica
- * restringida a owner/supervisor, y que borrar un cliente con historial
- * falla por FK (a propósito, no un bug). Mismo patrón que
- * tests/security/agenda-behavior.test.ts: datos 100% descartables contra
- * el proyecto real, borrados en el finally.
+ * restringida a owner/supervisor, que borrar un cliente con historial
+ * falla por FK (a propósito, no un bug), y aislamiento cross-tenant de
+ * v_client_history. Mismo patrón que tests/security/agenda-behavior.test.ts
+ * y tests/security/tenant-isolation.test.ts: datos 100% descartables
+ * contra el proyecto real, borrados en el finally.
  *
  * Ejecutar: pnpm test:clientes (desde apps/web, con .env.local cargado)
  */
 import { createClient } from "@supabase/supabase-js"
-import assert from "node:assert/strict"
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -43,6 +43,7 @@ async function main() {
   const userIds: string[] = []
   let tenantId: string | undefined
   let clientId: string | undefined
+  let otherTenantId: string | undefined
   let failures = 0
 
   try {
@@ -159,17 +160,64 @@ async function main() {
     } else {
       console.log("  OK — borrado")
     }
+
+    // --- Test 6: aislamiento cross-tenant de v_client_history ---
+    // client_history_select (migrations/0001) es tenant-scoped, no
+    // operator-scoped: `using (tenant_id in (select app.user_tenant_ids()))`.
+    // Cualquier miembro del MISMO tenant (incluida otra operadora) puede
+    // leer todas las filas de client_history de ese tenant vía la vista —
+    // la restricción a owner/supervisor (0009_client_history_module.sql)
+    // aplica solo a UPDATE, no a SELECT. Por eso un test "operadora B del
+    // mismo tenant no ve la fila" haría una aserción falsa (si la
+    // agregáramos, fallaría porque SÍ la ve, y con razón). La garantía real
+    // que falta cubrir — y la que da nombre a este finding — es aislamiento
+    // ENTRE tenants, igual que tenant-isolation.test.ts: un usuario que no
+    // pertenece al tenant de este historial no debe poder verlo a través de
+    // la vista, sin importar el rol que tenga en su propio tenant.
+    console.log("Test 6: un usuario de otro tenant no ve el historial vía v_client_history...")
+    const ownerB = await createTestUser("owner-b")
+    userIds.push(ownerB.id)
+    const ownerBClient = await signIn(ownerB.email, ownerB.password)
+
+    const { data: tenantBRow, error: tenantBError } = await ownerBClient.rpc("provision_tenant", {
+      p_business_name: "Clientes Test Salon B",
+    })
+    if (tenantBError || !tenantBRow?.[0]) throw new Error(`provision_tenant B falló: ${tenantBError?.message}`)
+    otherTenantId = tenantBRow[0].tenant_id
+
+    const { data: leaked, error: leakedError } = await ownerBClient
+      .from("v_client_history")
+      .select("id")
+      .eq("id", historyRow.id)
+    if (leakedError) {
+      console.log("  OK — la lectura devolvió error (bloqueada):", leakedError.message)
+    } else if (leaked && leaked.length > 0) {
+      console.error("  FALLO — un usuario de otro tenant pudo ver la fila de client_history vía v_client_history")
+      failures++
+    } else {
+      console.log("  OK — 0 filas visibles para un usuario de otro tenant")
+    }
   } finally {
     console.log("Limpiando datos de prueba...")
     if (tenantId) {
-      if (clientId) {
-        await admin.from("client_history").delete().eq("client_id", clientId)
-        await admin.from("clients").delete().eq("id", clientId)
-      }
+      // Borramos por tenant_id (no solo por el id puntual que veníamos
+      // trackeando) para no dejar basura si algún assert tira antes de
+      // registrar un id — mismo patrón defensivo que
+      // agenda-behavior.test.ts.
+      await admin.from("client_history").delete().eq("tenant_id", tenantId)
+      await admin.from("clients").delete().eq("tenant_id", tenantId)
       await admin.from("memberships").delete().eq("tenant_id", tenantId)
       await admin.from("branches").delete().eq("tenant_id", tenantId)
       await admin.from("commission_rules").delete().eq("tenant_id", tenantId)
       await admin.from("tenants").delete().eq("id", tenantId)
+    }
+    if (otherTenantId) {
+      await admin.from("client_history").delete().eq("tenant_id", otherTenantId)
+      await admin.from("clients").delete().eq("tenant_id", otherTenantId)
+      await admin.from("memberships").delete().eq("tenant_id", otherTenantId)
+      await admin.from("branches").delete().eq("tenant_id", otherTenantId)
+      await admin.from("commission_rules").delete().eq("tenant_id", otherTenantId)
+      await admin.from("tenants").delete().eq("id", otherTenantId)
     }
     for (const id of userIds) {
       await admin.from("users").delete().eq("id", id)
