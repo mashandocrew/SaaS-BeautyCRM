@@ -223,11 +223,23 @@ async function main() {
     }
 
     // --- Test 5: owner sí puede borrar un servicio sin uso ---
+    // Fila propia y no la de Test 4: si services_delete se afloja, Test 4
+    // ya borró aquella y Test 5 reportaría un fallo falso ("el dueño no
+    // pudo borrar") por una fila inexistente, escondiendo cuál es el bug real.
     console.log("Test 5: el dueño puede borrar un servicio sin uso...")
+    const { data: unusedService, error: unusedServiceError } = await ownerClient
+      .from("services")
+      .insert({ tenant_id: tenantId, name: "Servicio sin uso", duration_minutes: 20, price: 2000 })
+      .select()
+      .single()
+    if (unusedServiceError || !unusedService) {
+      throw new Error(`No pude crear servicio sin uso: ${unusedServiceError?.message}`)
+    }
+
     const { data: ownerDelete, error: ownerDeleteError } = await ownerClient
       .from("services")
       .delete()
-      .eq("id", throwaway.id)
+      .eq("id", unusedService.id)
       .select("id")
       .maybeSingle()
     if (ownerDeleteError || !ownerDelete) {
