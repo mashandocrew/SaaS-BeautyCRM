@@ -9,7 +9,7 @@ import type { ClientRecord } from "./client-types"
 
 export type ActionResult<T = undefined> =
   | { ok: true; data: T }
-  | { ok: false; error: string }
+  | { ok: false; error: string; code?: string | null }
 
 export type ClientInput = {
   fullName: string
@@ -94,7 +94,11 @@ export async function deleteClient(clientId: string): Promise<ActionResult> {
     // desde appointments/client_history/sales (migrations/0001) a
     // propósito: un cliente con historial real no se borra silenciosamente.
     if (error.code === "23503") {
-      return { ok: false, error: "No se puede eliminar: esta persona tiene turnos o historial asociado." }
+      return {
+        ok: false,
+        error: "No se puede eliminar: esta persona tiene turnos o historial asociado.",
+        code: error.code,
+      }
     }
     return { ok: false, error: "No pudimos eliminar el cliente." }
   }
@@ -127,5 +131,9 @@ export async function updateHistoryNotes(historyId: string, notes: string): Prom
 
   if (error || !data) return { ok: false, error: "No pudimos guardar la nota. Puede que no tengas permiso." }
 
+  // router.refresh() en ClientHistoryTable.tsx cubre /dashboard/clientes/[id],
+  // pero la operadora ve la misma nota técnica en /o/cliente (ver
+  // app/o/cliente/page.tsx) — sin esto queda stale si el dueño la edita.
+  revalidatePath("/o/cliente")
   return { ok: true, data: undefined }
 }
