@@ -45,12 +45,23 @@ export default async function AgendaPage({
     )
   }
 
+  // startOfWeek/setHours corren en el timezone del proceso Node (TZ), no
+  // en el del tenant — depende de que TZ esté fijado a
+  // America/Argentina/Mendoza en next.config.js (ver comentario ahí). Sin
+  // eso, en un host que usa UTC por default la semana puede arrancar el
+  // día equivocado y los turnos del domingo a la noche caer fuera de la
+  // ventana.
   const weekStart = startOfWeek(new Date())
   const weekEnd = addDays(weekStart, 7)
 
+  // En modo single la grilla debe mostrar las operadoras de TODO el
+  // tenant (no tiene sentido filtrar por sucursal cuando solo hay una) —
+  // pasamos branchId=null para no depender del filtro .or() de
+  // getBranchOperators en este caso. En modo multi sí filtramos por la
+  // sucursal real, y el .or() ya cubre ahí las operadoras tenant-wide.
   const [appointments, operators, services] = await Promise.all([
     getAgendaAppointments(membership.tenant_id, weekStart.toISOString(), weekEnd.toISOString(), { branchId }),
-    getBranchOperators(membership.tenant_id, branchId),
+    getBranchOperators(membership.tenant_id, isMulti ? branchId : null),
     getActiveServices(membership.tenant_id),
   ])
 

@@ -60,8 +60,10 @@ export function NewAppointmentModal({
       return
     }
     const timer = setTimeout(async () => {
-      const found = await searchClients(tenantId, query)
-      setResults(found)
+      const result = await searchClients(tenantId, query)
+      if (result.ok) {
+        setResults(result.data)
+      }
     }, 300)
     return () => clearTimeout(timer)
   }, [query, tenantId])

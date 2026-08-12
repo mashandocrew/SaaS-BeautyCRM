@@ -47,7 +47,13 @@ export async function getBranchOperators(
     .eq("tenant_id", tenantId)
     .eq("role", "operator")
 
-  if (branchId) query = query.eq("branch_id", branchId)
+  // memberships.branch_id puede ser NULL (membership de alcance
+  // tenant-wide, ver migrations/0001_initial_schema.sql y el mismo patrón
+  // ya usado en app.user_branch_ids: "branch_id is null or branch_id = b.id").
+  // Un filtro .eq("branch_id", branchId) descarta exactamente esas filas —
+  // una operadora tenant-wide dejaba de aparecer en la grilla de cualquier
+  // sucursal puntual. .or() incluye ambos casos: NULL o esta sucursal.
+  if (branchId) query = query.or(`branch_id.is.null,branch_id.eq.${branchId}`)
 
   const { data } = await query.returns<MembershipOperatorRow[]>()
   return (data ?? []).map((m) => m.users).filter((u): u is AgendaOperator => u !== null)

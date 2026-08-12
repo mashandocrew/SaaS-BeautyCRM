@@ -35,6 +35,30 @@ pnpm dev                               # http://localhost:3000
 | `NEXT_PUBLIC_SUPABASE_URL` | Dashboard Supabase → Project Settings → API | cliente browser + server |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Ídem (anon/publishable key) | cliente browser + server |
 | `SUPABASE_SERVICE_ROLE_KEY` | Ídem (service_role — secreta) | solo server actions puntuales (invitar operadoras). **Nunca** en el cliente, nunca en un commit. |
+| `TZ` | Fijo, ver invariante abajo | módulo Agenda (ventanas de "hoy" / "esta semana") |
+
+### Invariante de deploy: `TZ`
+
+El módulo Agenda calcula "hoy" (`/o`, Mi día) y "esta semana" (`/dashboard/agenda`)
+con `new Date()` + `setHours(...)` / `startOfWeek()` de JavaScript — corren en el
+timezone del **proceso Node**, no en el del tenant. `apps/web/next.config.js`
+fija `process.env.TZ = "America/Argentina/Mendoza"` (mismo default que usa
+`provision_tenant`, ver `migrations/0003` y `0005`) para que esto funcione
+igual en dev, build y start. Si el entorno de producción define `TZ`
+explícitamente (por ejemplo una variable de entorno en Vercel), ese valor
+gana sobre el default del código.
+
+**Por qué importa:** en un host que corre en UTC por default (como Vercel
+sin `TZ` seteado) y sin este fix, para un usuario en ART (UTC-3) la ventana
+de "Mi día" queda corrida ~3hs: muestra turnos de ayer a la noche y esconde
+los de hoy después de las 21:00; en `/dashboard/agenda` la semana puede
+arrancar el día equivocado.
+
+Esto es un fix a nivel de **proceso**, no por-tenant: todos los tenants de
+este deploy comparten el mismo `TZ`. Leer `tenants.settings.timezone` por
+request y aplicarlo por tenant es un rediseño más grande, todavía no
+implementado — si en algún momento este SaaS atiende tenants en timezones
+distintos, hace falta esa solución completa.
 
 Google OAuth y magic link ya están habilitados en el proyecto Supabase real
 (`xhbrhpfzehshiyjzlxnx`, región `sa-east-1`). Si hace falta reconfigurar el

@@ -6,12 +6,7 @@ import { Badge, Button, Sheet } from "@beautycrm/ui"
 import type { AgendaAppointment, AgendaStatus } from "@/lib/agenda-types"
 import { updateAppointmentStatus } from "@/lib/agenda-actions"
 import { formatTime } from "@/lib/agenda-time"
-
-const NEXT_STATUS: Partial<Record<AgendaStatus, { status: AgendaStatus; label: string }>> = {
-  booked: { status: "confirmed", label: "Confirmar" },
-  confirmed: { status: "in_progress", label: "Iniciar" },
-  in_progress: { status: "done", label: "Completar" },
-}
+import { NEXT_STATUS, STATUS_LABEL, canChangeStatus } from "@/lib/agenda-status"
 
 export function AppointmentDetailPanel({
   appointment,
@@ -44,7 +39,7 @@ export function AppointmentDetailPanel({
   }
 
   const next = NEXT_STATUS[appointment.status]
-  const canCancel = appointment.status !== "done" && appointment.status !== "cancelled"
+  const canCancel = canChangeStatus(appointment.status)
 
   return (
     <Sheet open={!!appointment} onClose={onClose} title="Detalle del turno" side="right">
@@ -53,7 +48,7 @@ export function AppointmentDetailPanel({
       <p className="agenda-detail-time">
         {formatTime(appointment.starts_at)} – {formatTime(appointment.ends_at)}
       </p>
-      <Badge tone="neutral">{appointment.status}</Badge>
+      <Badge tone="neutral">{STATUS_LABEL[appointment.status]}</Badge>
 
       <h3 style={{ marginTop: "var(--space-4)" }}>{appointment.client_name ?? "Sin cliente"}</h3>
       {appointment.client_phone ? <p>{appointment.client_phone}</p> : null}

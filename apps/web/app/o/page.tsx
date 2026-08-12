@@ -9,6 +9,11 @@ export default async function MiDiaPage() {
   const { user, membership } = await getCurrentMembership()
   if (!user || !membership) redirect("/login")
 
+  // setHours(0/23,...) corre en el timezone del proceso Node (TZ), no en
+  // el del tenant — depende de que TZ esté fijado a America/Argentina/Mendoza
+  // en next.config.js (ver comentario ahí). Sin eso, en un host que usa
+  // UTC por default esta ventana queda corrida ~3hs respecto al horario
+  // real del negocio (ART) y "Mi día" muestra/esconde turnos equivocados.
   const now = new Date()
   const start = new Date(now)
   start.setHours(0, 0, 0, 0)

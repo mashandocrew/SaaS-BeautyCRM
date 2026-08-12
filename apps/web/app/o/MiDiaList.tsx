@@ -7,21 +7,7 @@ import type { AgendaAppointment, AgendaStatus } from "@/lib/agenda-types"
 import { updateAppointmentStatus } from "@/lib/agenda-actions"
 import { useAgendaRealtime } from "@/lib/useAgendaRealtime"
 import { formatTime } from "@/lib/agenda-time"
-
-const STATUS_LABEL: Record<AgendaStatus, string> = {
-  booked: "Reservado",
-  confirmed: "Confirmado",
-  in_progress: "En curso",
-  done: "Hecho",
-  no_show: "No vino",
-  cancelled: "Cancelado",
-}
-
-const NEXT_ACTION: Partial<Record<AgendaStatus, { status: AgendaStatus; label: string }>> = {
-  booked: { status: "confirmed", label: "Confirmar" },
-  confirmed: { status: "in_progress", label: "Iniciar" },
-  in_progress: { status: "done", label: "Completar" },
-}
+import { NEXT_STATUS as NEXT_ACTION, STATUS_LABEL, canChangeStatus } from "@/lib/agenda-status"
 
 export function MiDiaList({
   tenantId,
@@ -67,7 +53,7 @@ export function MiDiaList({
       {appointments.map((a) => {
         const expanded = expandedId === a.id
         const next = NEXT_ACTION[a.status]
-        const canMarkNoShow = a.status !== "done" && a.status !== "cancelled" && a.status !== "no_show"
+        const canMarkNoShow = canChangeStatus(a.status)
 
         return (
           <div

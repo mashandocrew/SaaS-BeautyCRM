@@ -26,17 +26,25 @@ export function useAgendaRealtime(tenantId: string, onChange: () => void) {
     let channel: ReturnType<typeof supabase.channel> | null = null
     let cancelled = false
 
-    supabase.auth.getSession().then(() => {
-      if (cancelled) return
-      channel = supabase
-        .channel(`agenda-changes-${tenantId}`)
-        .on(
-          "postgres_changes",
-          { event: "*", schema: "public", table: "appointments", filter: `tenant_id=eq.${tenantId}` },
-          () => onChangeRef.current()
-        )
-        .subscribe()
-    })
+    supabase.auth
+      .getSession()
+      .then(() => {
+        if (cancelled) return
+        channel = supabase
+          .channel(`agenda-changes-${tenantId}`)
+          .on(
+            "postgres_changes",
+            { event: "*", schema: "public", table: "appointments", filter: `tenant_id=eq.${tenantId}` },
+            () => onChangeRef.current()
+          )
+          .subscribe()
+      })
+      .catch(() => {
+        // Si getSession() rechaza (ej. red caída), simplemente no nos
+        // suscribimos a Realtime — el resto de la pantalla (datos server-
+        // rendered + router.refresh() manual) sigue funcionando. No hay
+        // nada útil que hacer acá aparte de no dejar la promise sin manejar.
+      })
 
     return () => {
       cancelled = true

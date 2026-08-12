@@ -4,15 +4,7 @@ import { useMemo } from "react"
 import { Badge } from "@beautycrm/ui"
 import type { AgendaAppointment, AgendaOperator } from "@/lib/agenda-types"
 import { buildDaySlots, formatTime, slotIndexForTime, slotSpanForRange } from "@/lib/agenda-time"
-
-const STATUS_TONE: Record<string, "neutral" | "success" | "warning" | "danger"> = {
-  booked: "neutral",
-  confirmed: "warning",
-  in_progress: "warning",
-  done: "success",
-  no_show: "danger",
-  cancelled: "danger",
-}
+import { STATUS_LABEL, STATUS_TONE } from "@/lib/agenda-status"
 
 export function AgendaGrid({
   day,
@@ -98,7 +90,7 @@ export function AgendaGrid({
               <span className="agenda-grid-appointment-services">
                 {appointment.services.map((s) => s.name).join(", ")}
               </span>
-              <Badge tone={STATUS_TONE[appointment.status] ?? "neutral"}>{appointment.status}</Badge>
+              <Badge tone={STATUS_TONE[appointment.status] ?? "neutral"}>{STATUS_LABEL[appointment.status]}</Badge>
             </button>
           )
         })

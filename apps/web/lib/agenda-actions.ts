@@ -70,9 +70,19 @@ export async function updateAppointmentStatus(
   } = await supabase.auth.getUser()
   if (!user) return { ok: false, error: "Sesión inválida." }
 
-  const { error } = await supabase.from("appointments").update({ status }).eq("id", appointmentId)
+  // RLS puede filtrar este UPDATE (ej. una operadora tratando de cambiar el
+  // turno de otra) sin que Postgres tire error: simplemente afecta 0 filas
+  // y `error` queda null. Pedimos .select().maybeSingle() para distinguir
+  // "se actualizó una fila" de "RLS bloqueó todo en silencio" y devolver
+  // {ok:false} en ese caso en vez de reportar éxito sin haber cambiado nada.
+  const { data, error } = await supabase
+    .from("appointments")
+    .update({ status })
+    .eq("id", appointmentId)
+    .select("id")
+    .maybeSingle()
 
-  if (error) return { ok: false, error: "No pudimos actualizar el turno." }
+  if (error || !data) return { ok: false, error: "No pudimos actualizar el turno." }
 
   revalidatePath("/dashboard/agenda")
   revalidatePath("/o")
@@ -82,19 +92,30 @@ export async function updateAppointmentStatus(
 
 export type ClientSearchResult = { id: string; full_name: string; phone: string | null }
 
-export async function searchClients(tenantId: string, query: string): Promise<ClientSearchResult[]> {
-  if (query.trim().length < 2) return []
+export async function searchClients(
+  tenantId: string,
+  query: string
+): Promise<ActionResult<ClientSearchResult[]>> {
+  if (query.trim().length < 2) return { ok: true, data: [] }
+
+  // Sanitizamos antes de interpolar en .or(): una coma o un paréntesis en
+  // el input del usuario rompe la sintaxis del filtro PostgREST (coma
+  // separa condiciones, paréntesis abre/cierra grupos), lo que puede
+  // convertir la búsqueda en un filtro distinto al que el usuario escribió.
+  const safeQuery = query.replace(/[,()]/g, " ").trim()
 
   const supabase = await createClient()
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("clients")
     .select("id, full_name, phone")
     .eq("tenant_id", tenantId)
-    .or(`full_name.ilike.%${query}%,phone.ilike.%${query}%`)
+    .or(`full_name.ilike.%${safeQuery}%,phone.ilike.%${safeQuery}%`)
     .order("full_name")
     .limit(10)
 
-  return data ?? []
+  if (error) return { ok: false, error: "No pudimos buscar clientes." }
+
+  return { ok: true, data: data ?? [] }
 }
 
 export async function createQuickClient(
