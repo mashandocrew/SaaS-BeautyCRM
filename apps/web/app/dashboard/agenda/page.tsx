@@ -7,6 +7,7 @@ import {
   getBranchOperators,
   getActiveServices,
   getDefaultBranch,
+  getTenantBranches,
 } from "@/lib/agenda-queries"
 import { addDays, startOfWeek } from "@/lib/agenda-time"
 import { AgendaView } from "./AgendaView"
@@ -14,7 +15,7 @@ import { AgendaView } from "./AgendaView"
 export default async function AgendaPage({
   searchParams,
 }: {
-  searchParams: Promise<{ branch?: string }>
+  searchParams: Promise<{ branch?: string; week?: string }>
 }) {
   const { user, membership } = await getCurrentMembership()
   if (!user || !membership) redirect("/login")
@@ -51,7 +52,8 @@ export default async function AgendaPage({
   // eso, en un host que usa UTC por default la semana puede arrancar el
   // día equivocado y los turnos del domingo a la noche caer fuera de la
   // ventana.
-  const weekStart = startOfWeek(new Date())
+  const requestedWeek = params.week ? new Date(params.week) : new Date()
+  const weekStart = startOfWeek(isNaN(requestedWeek.getTime()) ? new Date() : requestedWeek)
   const weekEnd = addDays(weekStart, 7)
 
   // En modo single la grilla debe mostrar las operadoras de TODO el
@@ -59,20 +61,29 @@ export default async function AgendaPage({
   // pasamos branchId=null para no depender del filtro .or() de
   // getBranchOperators en este caso. En modo multi sí filtramos por la
   // sucursal real, y el .or() ya cubre ahí las operadoras tenant-wide.
-  const [appointments, operators, services] = await Promise.all([
+  const [appointments, operators, services, branches] = await Promise.all([
     getAgendaAppointments(membership.tenant_id, weekStart.toISOString(), weekEnd.toISOString(), { branchId }),
     getBranchOperators(membership.tenant_id, isMulti ? branchId : null),
     getActiveServices(membership.tenant_id),
+    isMulti ? getTenantBranches(membership.tenant_id) : Promise.resolve([]),
   ])
 
   return (
     <AgendaView
+      // key fuerza un remount completo de AgendaView cuando cambia la
+      // semana o la sucursal — mismo patrón ya usado en este módulo para
+      // evitar el bug de "estado local que no se resincroniza con un prop
+      // nuevo" (ver MiDiaList / detailAppointmentId). Un remount limpio es
+      // más simple y más robusto acá que perseguir cada pieza de estado
+      // con un useEffect de resincronización.
+      key={`${weekStart.toISOString()}-${branchId}`}
       tenantId={membership.tenant_id}
       branchId={branchId}
       weekStartISO={weekStart.toISOString()}
       initialAppointments={appointments}
       operators={operators}
       services={services}
+      branches={branches}
     />
   )
 }

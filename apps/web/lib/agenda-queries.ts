@@ -1,6 +1,6 @@
 import "server-only"
 import { createClient } from "@beautycrm/supabase/server"
-import type { AgendaAppointment, AgendaOperator, AgendaService } from "./agenda-types"
+import type { AgendaAppointment, AgendaBranch, AgendaOperator, AgendaService } from "./agenda-types"
 
 export async function getAgendaAppointments(
   tenantId: string,
@@ -84,4 +84,16 @@ export async function getDefaultBranch(tenantId: string): Promise<{ id: string; 
     .maybeSingle()
 
   return data ?? null
+}
+
+export async function getTenantBranches(tenantId: string): Promise<AgendaBranch[]> {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from("branches")
+    .select("id, name")
+    .eq("tenant_id", tenantId)
+    .eq("is_active", true)
+    .order("name")
+
+  return data ?? []
 }

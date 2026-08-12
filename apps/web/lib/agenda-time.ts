@@ -57,3 +57,10 @@ export function formatDayLabel(date: Date): string {
 export function formatTime(iso: string): string {
   return new Date(iso).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })
 }
+
+export function formatWeekRangeLabel(weekStart: Date): string {
+  const weekEnd = addDays(weekStart, 6)
+  const startLabel = weekStart.toLocaleDateString("es-AR", { day: "numeric", month: "short" })
+  const endLabel = weekEnd.toLocaleDateString("es-AR", { day: "numeric", month: "short" })
+  return `${startLabel} – ${endLabel}`
+}

@@ -951,3 +951,20 @@ tbody tr:hover {
   margin-top: var(--space-2);
   flex-wrap: wrap;
 }
+
+/* Navegación de semana (dueño/supervisor) */
+
+.agenda-week-nav {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.agenda-week-nav-label {
+  font: var(--text-small);
+  font-weight: 600;
+  color: var(--color-ink-soft);
+  min-width: 140px;
+  text-align: center;
+}

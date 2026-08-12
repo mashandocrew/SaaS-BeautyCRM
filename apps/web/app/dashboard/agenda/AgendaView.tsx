@@ -2,10 +2,16 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
-import { CalendarBlank } from "@phosphor-icons/react"
-import { EmptyState } from "@beautycrm/ui"
-import type { AgendaAppointment, AgendaOperator, AgendaService } from "@/lib/agenda-types"
-import { AGENDA_DAY_END_HOUR, AGENDA_DAY_START_HOUR, addDays, formatDayLabel } from "@/lib/agenda-time"
+import { CalendarBlank, CaretLeft, CaretRight } from "@phosphor-icons/react"
+import { Button, EmptyState } from "@beautycrm/ui"
+import type { AgendaAppointment, AgendaBranch, AgendaOperator, AgendaService } from "@/lib/agenda-types"
+import {
+  AGENDA_DAY_END_HOUR,
+  AGENDA_DAY_START_HOUR,
+  addDays,
+  formatDayLabel,
+  formatWeekRangeLabel,
+} from "@/lib/agenda-time"
 import { useAgendaRealtime } from "@/lib/useAgendaRealtime"
 import { AgendaGrid } from "./AgendaGrid"
 import { NewAppointmentModal } from "./NewAppointmentModal"
@@ -20,6 +26,7 @@ export function AgendaView({
   initialAppointments,
   operators,
   services,
+  branches,
 }: {
   tenantId: string
   branchId: string
@@ -27,11 +34,20 @@ export function AgendaView({
   initialAppointments: AgendaAppointment[]
   operators: AgendaOperator[]
   services: AgendaService[]
+  branches: AgendaBranch[]
 }) {
   const router = useRouter()
   const weekStart = useMemo(() => new Date(weekStartISO), [weekStartISO])
   const days = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)), [weekStart])
-  const [selectedDay, setSelectedDay] = useState(() => new Date())
+  // Si "hoy" cae dentro de la semana que se está mostrando, arranca ahí;
+  // si no (navegaste a otra semana), arranca en el primer día de esa
+  // semana. AgendaView se remonta completo (key en page.tsx) cada vez que
+  // cambia la semana o la sucursal, así que este useState se re-evalúa
+  // desde cero y no necesita un useEffect de resincronización.
+  const [selectedDay, setSelectedDay] = useState(() => {
+    const today = new Date()
+    return days.some((d) => d.toDateString() === today.toDateString()) ? today : days[0]
+  })
   const [modalSlot, setModalSlot] = useState<{ operatorId: string; startISO: string } | null>(null)
   // Guardamos solo el id y derivamos el turno de initialAppointments (igual
   // que dayAppointments más abajo) en vez de guardar una copia del objeto
@@ -92,6 +108,25 @@ export function AgendaView({
     }).length
   }, [dayAppointments])
 
+  // Navegar de semana o sucursal empuja una nueva URL con los params
+  // correspondientes — page.tsx lee esos searchParams, resuelve el nuevo
+  // weekStart/branchId server-side y le pasa un key distinto a AgendaView,
+  // forzando el remount limpio en vez de resincronizar estado local.
+  function navigateWeek(direction: -1 | 1) {
+    const newWeekStart = addDays(weekStart, direction * 7)
+    const params = new URLSearchParams()
+    params.set("week", newWeekStart.toISOString())
+    if (branches.length > 0) params.set("branch", branchId)
+    router.push(`/dashboard/agenda?${params.toString()}`)
+  }
+
+  function navigateBranch(newBranchId: string) {
+    const params = new URLSearchParams()
+    params.set("week", weekStartISO)
+    params.set("branch", newBranchId)
+    router.push(`/dashboard/agenda?${params.toString()}`)
+  }
+
   if (operators.length === 0) {
     return (
       <div>
@@ -110,6 +145,35 @@ export function AgendaView({
   return (
     <div>
       <h1>Agenda</h1>
+
+      <div className="agenda-week-nav">
+        <Button variant="secondary" onClick={() => navigateWeek(-1)} aria-label="Semana anterior">
+          <CaretLeft size={16} weight="bold" />
+        </Button>
+        <span className="agenda-week-nav-label">{formatWeekRangeLabel(weekStart)}</span>
+        <Button variant="secondary" onClick={() => navigateWeek(1)} aria-label="Semana siguiente">
+          <CaretRight size={16} weight="bold" />
+        </Button>
+
+        {/* El selector de sucursal solo tiene sentido en modo multi — en
+            modo single page.tsx pasa branches=[] y este <select> ni se
+            renderiza. */}
+        {branches.length > 0 ? (
+          <select
+            className="input"
+            value={branchId}
+            onChange={(e) => navigateBranch(e.target.value)}
+            aria-label="Elegir sucursal"
+            style={{ marginLeft: "auto" }}
+          >
+            {branches.map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.name}
+              </option>
+            ))}
+          </select>
+        ) : null}
+      </div>
 
       <div className="agenda-day-tabs">
         {days.map((day) => (

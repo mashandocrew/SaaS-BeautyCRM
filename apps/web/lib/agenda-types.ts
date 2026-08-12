@@ -30,3 +30,5 @@ export type AgendaAppointment = {
 export type AgendaOperator = { id: string; full_name: string | null }
 
 export type AgendaService = { id: string; name: string; duration_minutes: number; price: number }
+
+export type AgendaBranch = { id: string; name: string }
