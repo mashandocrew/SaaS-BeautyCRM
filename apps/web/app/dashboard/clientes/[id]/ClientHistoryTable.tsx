@@ -20,17 +20,23 @@ export function ClientHistoryTable({ history }: { history: ClientHistoryEntry[] 
   const [editingId, setEditingId] = useState<string | null>(null)
   const [draft, setDraft] = useState("")
   const [savingId, setSavingId] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   function startEdit(entry: ClientHistoryEntry) {
     setEditingId(entry.id)
     setDraft(entry.technical_notes ?? "")
+    setError(null)
   }
 
   async function save(entryId: string) {
     setSavingId(entryId)
+    setError(null)
     const result = await updateHistoryNotes(entryId, draft)
     setSavingId(null)
-    if (!result.ok) return
+    if (!result.ok) {
+      setError(result.error)
+      return
+    }
     setEditingId(null)
     router.refresh()
   }
@@ -56,11 +62,14 @@ export function ClientHistoryTable({ history }: { history: ClientHistoryEntry[] 
             <td>{entry.operator_name ?? "—"}</td>
             <td>
               {editingId === entry.id ? (
-                <div style={{ display: "flex", gap: "var(--space-2)", alignItems: "flex-start" }}>
-                  <textarea className="input" rows={2} value={draft} onChange={(e) => setDraft(e.target.value)} />
-                  <Button type="button" onClick={() => save(entry.id)} disabled={savingId === entry.id}>
-                    {savingId === entry.id ? "Guardando..." : "Guardar"}
-                  </Button>
+                <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
+                  <div style={{ display: "flex", gap: "var(--space-2)", alignItems: "flex-start" }}>
+                    <textarea className="input" rows={2} value={draft} onChange={(e) => setDraft(e.target.value)} />
+                    <Button type="button" onClick={() => save(entry.id)} disabled={savingId === entry.id}>
+                      {savingId === entry.id ? "Guardando..." : "Guardar"}
+                    </Button>
+                  </div>
+                  {error ? <p className="error-banner">{error}</p> : null}
                 </div>
               ) : (
                 <button

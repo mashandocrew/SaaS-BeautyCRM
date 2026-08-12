@@ -111,9 +111,16 @@ export async function updateHistoryNotes(historyId: string, notes: string): Prom
   } = await supabase.auth.getUser()
   if (!user) return { ok: false, error: "Sesión inválida." }
 
+  // Mismo criterio que ClientFormSheet.tsx para sus propios campos: una
+  // nota vaciada por el usuario se guarda como NULL, no como "". Si no,
+  // "" ?? <span>Agregar nota</span> devuelve "" (nullish coalescing solo
+  // cae al fallback con null/undefined, no con string vacío) y el botón de
+  // ClientHistoryTable.tsx queda sin texto visible ni nombre accesible.
+  const normalizedNotes = notes.trim() || null
+
   const { data, error } = await supabase
     .from("client_history")
-    .update({ technical_notes: notes })
+    .update({ technical_notes: normalizedNotes })
     .eq("id", historyId)
     .select("id")
     .maybeSingle()
