@@ -683,6 +683,28 @@ tbody tr:hover {
   background: var(--color-bg);
 }
 
+/* Nombre clickeable dentro de una tabla cuando la acción abre un panel en
+   vez de navegar a otra ruta (ej. Servicios): se lee como link pero es un
+   <button>, que es el rol semántico correcto para "abrir un diálogo". */
+.link-button {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: var(--color-primary);
+  text-align: left;
+  cursor: pointer;
+}
+
+.link-button:hover {
+  text-decoration: underline;
+}
+
+.link-button:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
 /* ===========================================================================
    Módulo Agenda
    =========================================================================== */
