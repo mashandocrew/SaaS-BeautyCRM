@@ -9,6 +9,30 @@ import type { ClientDetail } from "@/lib/client-types"
 import { ClientFormSheet } from "../ClientFormSheet"
 import { ClientHistoryTable } from "./ClientHistoryTable"
 
+// client.birthday es un `date` de Postgres: llega como "YYYY-MM-DD" puro,
+// sin hora ni zona. `new Date("1990-05-12")` lo parsea como medianoche UTC,
+// y formatear eso con toLocaleDateString sin timeZone explícito usa la zona
+// del entorno donde corre — server (UTC) vs browser (America/Argentina,
+// UTC-3) pueden mostrar días distintos para el mismo string, y como este es
+// un Client Component que también renderiza en SSR, eso es un mismatch de
+// hidratación real, no solo un detalle visual. Parseamos los 3 componentes
+// a mano y forzamos timeZone: "UTC" en el formateo para que el resultado
+// sea determinístico sin importar dónde se ejecute.
+function formatBirthday(birthday: string): string {
+  const [year, month, day] = birthday.split("-").map(Number)
+  const date = new Date(Date.UTC(year, month - 1, day))
+  return date.toLocaleDateString("es-AR", { day: "numeric", month: "long", timeZone: "UTC" })
+}
+
+// summary.lastVisitAt viene de performed_at (timestamptz): a diferencia de
+// birthday sí trae una zona real, pero toLocaleDateString sin timeZone
+// explícito igual queda a merced de la zona del entorno (server vs
+// browser) → mismo riesgo de hidratación. timeZone: "UTC" lo hace
+// determinístico.
+function formatVisitDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("es-AR", { timeZone: "UTC" })
+}
+
 export function ClientDetailView({ tenantId, detail }: { tenantId: string; detail: ClientDetail }) {
   const router = useRouter()
   const [editOpen, setEditOpen] = useState(false)
@@ -47,7 +71,7 @@ export function ClientDetailView({ tenantId, detail }: { tenantId: string; detai
           </p>
           {client.birthday ? (
             <p style={{ color: "var(--color-ink-soft)" }}>
-              Cumpleaños: {new Date(client.birthday).toLocaleDateString("es-AR", { day: "numeric", month: "long" })}
+              Cumpleaños: {formatBirthday(client.birthday)}
             </p>
           ) : null}
           {client.notes ? <p>{client.notes}</p> : null}
@@ -66,7 +90,7 @@ export function ClientDetailView({ tenantId, detail }: { tenantId: string; detai
         <StatTile label="Visitas" value={summary.visitCount} />
         <StatTile
           label="Última visita"
-          value={summary.lastVisitAt ? new Date(summary.lastVisitAt).toLocaleDateString("es-AR") : "—"}
+          value={summary.lastVisitAt ? formatVisitDate(summary.lastVisitAt) : "—"}
         />
       </div>
 

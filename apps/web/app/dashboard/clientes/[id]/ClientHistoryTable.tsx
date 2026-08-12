@@ -6,6 +6,15 @@ import { Button } from "@beautycrm/ui"
 import { updateHistoryNotes } from "@/lib/client-actions"
 import type { ClientHistoryEntry } from "@/lib/client-types"
 
+// performed_at es timestamptz (trae zona real), pero toLocaleDateString sin
+// timeZone explícito igual queda a merced de la zona del entorno donde
+// corre (server vs browser) — mismo riesgo de mismatch de hidratación que
+// client.birthday en ClientDetailView.tsx. timeZone: "UTC" lo hace
+// determinístico.
+function formatVisitDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("es-AR", { timeZone: "UTC" })
+}
+
 export function ClientHistoryTable({ history }: { history: ClientHistoryEntry[] }) {
   const router = useRouter()
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -39,7 +48,7 @@ export function ClientHistoryTable({ history }: { history: ClientHistoryEntry[] 
       <tbody>
         {history.map((entry) => (
           <tr key={entry.id}>
-            <td>{new Date(entry.performed_at).toLocaleDateString("es-AR")}</td>
+            <td>{formatVisitDate(entry.performed_at)}</td>
             {/* service_name puede ser null: apps/web/app/o/cliente/actions.ts
                 inserta notas de la operadora sin servicio asociado (ver
                 spec, sección "Dato real: addTechnicalNote existente"). */}
