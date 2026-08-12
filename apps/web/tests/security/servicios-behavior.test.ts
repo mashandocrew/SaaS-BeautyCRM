@@ -46,6 +46,7 @@ async function main() {
   const userIds: string[] = []
   let tenantId: string | undefined
   let branchId: string | undefined
+  let otherTenantId: string | undefined
   let failures = 0
 
   try {
@@ -224,6 +225,46 @@ async function main() {
     } else {
       console.log("  OK — bloqueado por foreign_key_violation (23503)")
     }
+
+    // --- Test 7: aislamiento cross-tenant de services ---
+    // Las server actions reciben tenantId como argumento (son endpoints
+    // públicos), así que la única barrera contra insertar en un tenant ajeno
+    // es el WITH CHECK de services_insert, que evalúa app.has_role contra
+    // auth.uid(). Este test prueba esa barrera en vez de asumirla.
+    console.log("Test 7: un usuario de otro tenant no puede insertar ni leer servicios ajenos...")
+    const ownerB = await createTestUser("owner-b")
+    userIds.push(ownerB.id)
+    const ownerBClient = await signIn(ownerB.email, ownerB.password)
+
+    const { data: tenantBRow, error: tenantBError } = await ownerBClient.rpc("provision_tenant", {
+      p_business_name: "Servicios Test Salon B",
+    })
+    if (tenantBError || !tenantBRow?.[0]) throw new Error(`provision_tenant B falló: ${tenantBError?.message}`)
+    otherTenantId = tenantBRow[0].tenant_id
+
+    const { data: crossInsert, error: crossInsertError } = await ownerBClient
+      .from("services")
+      .insert({ tenant_id: tenantId, name: "Servicio inyectado", duration_minutes: 30, price: 9999 })
+      .select("id")
+    if (!crossInsertError && crossInsert && crossInsert.length > 0) {
+      console.error("  FALLO — un dueño de otro tenant pudo insertar un servicio en este tenant")
+      failures++
+    } else {
+      console.log("  OK — RLS bloqueó el insert cross-tenant")
+    }
+
+    const { data: leakedServices, error: leakedError } = await ownerBClient
+      .from("services")
+      .select("id")
+      .eq("tenant_id", tenantId)
+    if (leakedError) {
+      console.log("  OK — la lectura cross-tenant devolvió error (bloqueada):", leakedError.message)
+    } else if (leakedServices && leakedServices.length > 0) {
+      console.error("  FALLO — un dueño de otro tenant pudo leer el catálogo de servicios ajeno")
+      failures++
+    } else {
+      console.log("  OK — 0 servicios visibles para un usuario de otro tenant")
+    }
   } finally {
     console.log("Limpiando datos de prueba...")
     if (tenantId) {
@@ -244,6 +285,25 @@ async function main() {
       await admin.from("branches").delete().eq("tenant_id", tenantId)
       await admin.from("commission_rules").delete().eq("tenant_id", tenantId)
       await admin.from("tenants").delete().eq("id", tenantId)
+    }
+    if (otherTenantId) {
+      // Mismo orden y mismas tablas que el bloque de tenantId — Test 7
+      // provisiona un segundo tenant y hay que limpiarlo igual, aunque el
+      // insert cross-tenant haya fallado (como se espera) y no haya dejado
+      // nada propio en este tenant salvo el tenant mismo y sus filas base.
+      const { data: otherAppointments } = await admin.from("appointments").select("id").eq("tenant_id", otherTenantId)
+      const otherAppointmentIds = (otherAppointments ?? []).map((a) => a.id)
+      if (otherAppointmentIds.length > 0) {
+        await admin.from("appointment_services").delete().in("appointment_id", otherAppointmentIds)
+      }
+      await admin.from("client_history").delete().eq("tenant_id", otherTenantId)
+      await admin.from("appointments").delete().eq("tenant_id", otherTenantId)
+      await admin.from("services").delete().eq("tenant_id", otherTenantId)
+      await admin.from("clients").delete().eq("tenant_id", otherTenantId)
+      await admin.from("memberships").delete().eq("tenant_id", otherTenantId)
+      await admin.from("branches").delete().eq("tenant_id", otherTenantId)
+      await admin.from("commission_rules").delete().eq("tenant_id", otherTenantId)
+      await admin.from("tenants").delete().eq("id", otherTenantId)
     }
     for (const id of userIds) {
       await admin.from("users").delete().eq("id", id)
