@@ -1,0 +1,124 @@
+"use server"
+
+// Alias porque este archivo exporta su propia función `createClient` (alta
+// de cliente de negocio) — sin el alias colisionaría con el factory de
+// Supabase.
+import { createClient as createSupabaseClient } from "@beautycrm/supabase/server"
+import { revalidatePath } from "next/cache"
+import type { ClientRecord } from "./client-types"
+
+export type ActionResult<T = undefined> =
+  | { ok: true; data: T }
+  | { ok: false; error: string }
+
+export type ClientInput = {
+  fullName: string
+  phone: string | null
+  email: string | null
+  birthday: string | null
+  notes: string | null
+}
+
+export async function createClient(tenantId: string, input: ClientInput): Promise<ActionResult<ClientRecord>> {
+  if (!input.fullName.trim()) return { ok: false, error: "El nombre es obligatorio." }
+
+  const supabase = await createSupabaseClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { ok: false, error: "Sesión inválida." }
+
+  const { data, error } = await supabase
+    .from("clients")
+    .insert({
+      tenant_id: tenantId,
+      full_name: input.fullName.trim(),
+      phone: input.phone,
+      email: input.email,
+      birthday: input.birthday,
+      notes: input.notes,
+    })
+    .select("*")
+    .single()
+
+  if (error || !data) return { ok: false, error: "No pudimos crear el cliente." }
+
+  revalidatePath("/dashboard/clientes")
+  return { ok: true, data }
+}
+
+export async function updateClient(clientId: string, input: ClientInput): Promise<ActionResult<ClientRecord>> {
+  if (!input.fullName.trim()) return { ok: false, error: "El nombre es obligatorio." }
+
+  const supabase = await createSupabaseClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { ok: false, error: "Sesión inválida." }
+
+  // .select().maybeSingle() en vez de solo comprobar `error`: si RLS
+  // bloquea el UPDATE (fila de otro tenant), Postgres no tira error,
+  // simplemente actualiza 0 filas — mismo patrón que
+  // updateAppointmentStatus en lib/agenda-actions.ts.
+  const { data, error } = await supabase
+    .from("clients")
+    .update({
+      full_name: input.fullName.trim(),
+      phone: input.phone,
+      email: input.email,
+      birthday: input.birthday,
+      notes: input.notes,
+    })
+    .eq("id", clientId)
+    .select("*")
+    .maybeSingle()
+
+  if (error || !data) return { ok: false, error: "No pudimos actualizar el cliente." }
+
+  revalidatePath("/dashboard/clientes")
+  revalidatePath(`/dashboard/clientes/${clientId}`)
+  return { ok: true, data }
+}
+
+export async function deleteClient(clientId: string): Promise<ActionResult> {
+  const supabase = await createSupabaseClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { ok: false, error: "Sesión inválida." }
+
+  const { data, error } = await supabase.from("clients").delete().eq("id", clientId).select("id").maybeSingle()
+
+  if (error) {
+    // 23503 = foreign_key_violation. clients no tiene ON DELETE CASCADE
+    // desde appointments/client_history/sales (migrations/0001) a
+    // propósito: un cliente con historial real no se borra silenciosamente.
+    if (error.code === "23503") {
+      return { ok: false, error: "No se puede eliminar: esta persona tiene turnos o historial asociado." }
+    }
+    return { ok: false, error: "No pudimos eliminar el cliente." }
+  }
+  if (!data) return { ok: false, error: "No pudimos eliminar el cliente. Puede que no tengas permiso." }
+
+  revalidatePath("/dashboard/clientes")
+  return { ok: true, data: undefined }
+}
+
+export async function updateHistoryNotes(historyId: string, notes: string): Promise<ActionResult> {
+  const supabase = await createSupabaseClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { ok: false, error: "Sesión inválida." }
+
+  const { data, error } = await supabase
+    .from("client_history")
+    .update({ technical_notes: notes })
+    .eq("id", historyId)
+    .select("id")
+    .maybeSingle()
+
+  if (error || !data) return { ok: false, error: "No pudimos guardar la nota. Puede que no tengas permiso." }
+
+  return { ok: true, data: undefined }
+}
