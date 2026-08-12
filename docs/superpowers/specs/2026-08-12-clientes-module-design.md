@@ -89,6 +89,10 @@ left join branches b on b.id = ch.branch_id;
 
 **No se toca `agenda-actions.ts`**: `createQuickClient` (alta mínima nombre+teléfono desde el modal de turno) se queda como está — es un flujo distinto y ya está en producción y probado; no hay beneficio en tocarlo para este módulo.
 
+## Dato real: borrar un cliente con historial falla por FK, y eso es correcto
+
+`client_history.client_id`, `appointments.client_id` y `sales.client_id` referencian `clients(id)` sin `ON DELETE CASCADE` (`migrations/0001_initial_schema.sql`). Borrar un cliente que ya tiene turnos/historial/ventas asociados dispara un `foreign_key_violation` (`23503`) de Postgres, no un borrado silencioso. Esto es el comportamiento correcto — el pedido original de "Eliminar cliente" era para limpiar altas duplicadas o de prueba, no para clientes con historial real, y bloquear ahí protege datos reales de un borrado accidental. `deleteClient` mapea `error.code === "23503"` a un mensaje legible ("No se puede eliminar: esta persona tiene turnos o historial asociado.") en vez de dejar pasar el error crudo de Postgres.
+
 ## Componentes y archivos
 
 Reutiliza el design system tal cual (`Card`, `Badge`, `EmptyState`, `Sheet`, `Field`/`Input`, `StatTile`, y la spec de Tabla ya documentada en `docs/ui-design-system.md` sección 9) — sin CSS nuevo más allá de clases puntuales si hace falta.
