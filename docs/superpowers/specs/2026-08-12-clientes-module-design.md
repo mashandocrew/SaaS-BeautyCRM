@@ -34,6 +34,8 @@ client_history (
 
 `client_history` es insert-only vía el trigger de Agenda — una fila por *servicio* realizado, no por turno (un turno con 2 servicios genera 2 filas).
 
+**Dato real detectado en el código existente:** `apps/web/app/o/cliente/actions.ts` (`addTechnicalNote`, ya en producción) deja que la operadora agregue una nota desde su PWA — pero lo hace **insertando una fila nueva** en `client_history` con `service_id: null`, atada al mismo `appointment_id`, no editando una fila existente. Es un flujo distinto y complementario al de este módulo (operadora agrega una nota rápida sobre el próximo turno; dueño/supervisor edita una nota ya cargada desde la ficha) — no se toca `/o/cliente` en este trabajo. Pero sí implica que `v_client_history`/`ClientHistoryTable` van a encontrar filas reales con `service_name: null` (notas sueltas sin servicio asociado): la tabla las muestra con la etiqueta "Nota" en vez de una celda de servicio vacía.
+
 ## Gap detectado: falta policy de UPDATE en `client_history`
 
 Las policies de `0001_initial_schema.sql` cubren `clients` completo (`select`/`insert`/`update` para cualquier miembro del tenant, `delete` solo owner/supervisor) pero `client_history` solo tiene `select` e `insert` — **no existe policy de `update`**. Sin ella, no se puede persistir una nota técnica desde ningún lado. Hace falta una migración nueva.
