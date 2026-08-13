@@ -89,7 +89,7 @@ test.beforeAll(async ({ request }) => {
 /** Lo que el Sheet traía en sus inputs en el instante en que entró al DOM. */
 type SheetSnapshot = { name: string; duration: string }
 
-test("alta, agrupado por categoría, edición y desactivación de un servicio", async ({ page }) => {
+test("alta, agrupado por categoría, edición, desactivación y eliminación de un servicio", async ({ page }) => {
   const baseURL = test.info().project.use.baseURL ?? "http://localhost:3000"
   const { data: linkData } = await admin.auth.admin.generateLink({ type: "magiclink", email: ownerEmail })
   const tokenHash = linkData?.properties?.hashed_token
@@ -196,4 +196,20 @@ test("alta, agrupado por categoría, edición y desactivación de un servicio", 
   await page.locator(".agenda-grid-slot").first().click()
   await expect(page.getByRole("heading", { name: "Nuevo turno" })).toBeVisible()
   await expect(page.getByRole("checkbox", { name: /Corte E2E/ })).toHaveCount(0)
+
+  // --- Eliminar sale del catálogo, no falla ---
+  // El borrado es suave (migrations/0011): la fila sobrevive para que el
+  // historial conserve nombre y precio, pero para quien usa la app el
+  // servicio tiene que desaparecer — del listado y del grupo de su
+  // categoría, que acá queda vacío.
+  await page.goto(`${baseURL}/dashboard/servicios`)
+  await page.getByRole("button", { name: "Corte E2E" }).click()
+  await expect(page.getByRole("heading", { name: "Editar servicio" })).toBeVisible()
+
+  page.once("dialog", (dialog) => dialog.accept())
+  await page.getByRole("button", { name: "Eliminar servicio" }).click()
+
+  await expect(page.getByRole("heading", { name: "Editar servicio" })).toBeHidden()
+  await expect(page.getByRole("button", { name: "Corte E2E" })).toHaveCount(0, { timeout: 10_000 })
+  await expect(page.getByRole("heading", { name: "Cabello E2E" })).toHaveCount(0)
 })

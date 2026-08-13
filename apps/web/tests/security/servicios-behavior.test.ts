@@ -136,8 +136,11 @@ async function main() {
       }
     }
 
-    // --- Test 4: supervisor NO puede borrar (services_delete es owner-only) ---
-    console.log("Test 4: supervisor no puede borrar un servicio...")
+    // --- Test 4: supervisor NO puede eliminar (eliminar es owner-only) ---
+    // Se prueban los dos caminos: el RPC de borrado suave, que es el que usa
+    // la app, y el DELETE directo, que sigue siendo la barrera de RLS por
+    // debajo. Aflojar cualquiera de los dos rompe el mismo invariante.
+    console.log("Test 4: supervisor no puede eliminar un servicio (ni por RPC ni por DELETE)...")
     const { data: throwaway, error: throwawayError } = await ownerClient
       .from("services")
       .insert({ tenant_id: tenantId, name: "Servicio descartable", duration_minutes: 15, price: 1000 })
@@ -145,24 +148,45 @@ async function main() {
       .single()
     if (throwawayError || !throwaway) throw new Error(`No pude crear servicio descartable: ${throwawayError?.message}`)
 
+    const { error: supervisorSoftDeleteError } = await supervisorClient.rpc("soft_delete_service", {
+      p_service_id: throwaway.id,
+    })
+    if (!supervisorSoftDeleteError) {
+      console.error("  FALLO — la supervisora pudo eliminar un servicio vía soft_delete_service")
+      failures++
+    } else if (supervisorSoftDeleteError.code !== "42501") {
+      console.error(
+        "  FALLO — el RPC falló pero con un código inesperado:",
+        supervisorSoftDeleteError.code,
+        supervisorSoftDeleteError.message,
+      )
+      failures++
+    } else {
+      console.log("  OK — el RPC rechazó a la supervisora (42501)")
+    }
+
     const { data: supervisorDelete } = await supervisorClient
       .from("services")
       .delete()
       .eq("id", throwaway.id)
       .select("id")
-    const { data: stillThere } = await admin.from("services").select("id").eq("id", throwaway.id).maybeSingle()
-    if ((supervisorDelete && supervisorDelete.length > 0) || !stillThere) {
+    const { data: stillThere } = await admin
+      .from("services")
+      .select("id, deleted_at")
+      .eq("id", throwaway.id)
+      .maybeSingle()
+    if ((supervisorDelete && supervisorDelete.length > 0) || !stillThere || stillThere.deleted_at !== null) {
       console.error("  FALLO — la supervisora pudo borrar un servicio (services_delete debería ser owner-only)")
       failures++
     } else {
-      console.log("  OK — 0 filas afectadas (RLS bloqueó), el servicio sigue existiendo")
+      console.log("  OK — 0 filas afectadas (RLS bloqueó), el servicio sigue vivo y sin marcar")
     }
 
-    // --- Test 5: owner sí puede borrar un servicio sin uso ---
-    // Fila propia y no la de Test 4: si services_delete se afloja, Test 4
-    // ya borró aquella y Test 5 reportaría un fallo falso ("el dueño no
-    // pudo borrar") por una fila inexistente, escondiendo cuál es el bug real.
-    console.log("Test 5: el dueño puede borrar un servicio sin uso...")
+    // --- Test 5: el dueño elimina un servicio sin uso ---
+    // Fila propia y no la de Test 4: si el permiso se afloja, Test 4 ya
+    // eliminó aquella y Test 5 reportaría un fallo falso ("el dueño no pudo
+    // eliminar") por una fila ya marcada, escondiendo cuál es el bug real.
+    console.log("Test 5: el dueño puede eliminar un servicio sin uso...")
     const { data: unusedService, error: unusedServiceError } = await ownerClient
       .from("services")
       .insert({ tenant_id: tenantId, name: "Servicio sin uso", duration_minutes: 20, price: 2000 })
@@ -172,21 +196,32 @@ async function main() {
       throw new Error(`No pude crear servicio sin uso: ${unusedServiceError?.message}`)
     }
 
-    const { data: ownerDelete, error: ownerDeleteError } = await ownerClient
+    const { error: unusedDeleteError } = await ownerClient.rpc("soft_delete_service", {
+      p_service_id: unusedService.id,
+    })
+    const { data: unusedAfter } = await admin
       .from("services")
-      .delete()
+      .select("deleted_at, is_active")
       .eq("id", unusedService.id)
-      .select("id")
       .maybeSingle()
-    if (ownerDeleteError || !ownerDelete) {
-      console.error("  FALLO — el dueño no pudo borrar un servicio sin uso:", ownerDeleteError?.message)
+    if (unusedDeleteError) {
+      console.error("  FALLO — el dueño no pudo eliminar un servicio sin uso:", unusedDeleteError.message)
+      failures++
+    } else if (!unusedAfter?.deleted_at || unusedAfter.is_active !== false) {
+      console.error("  FALLO — el servicio no quedó marcado como eliminado ni desactivado:", unusedAfter)
       failures++
     } else {
-      console.log("  OK — borrado")
+      console.log("  OK — quedó con deleted_at y is_active=false")
     }
 
-    // --- Test 6: borrar un servicio usado en un turno falla por FK ---
-    console.log("Test 6: borrar un servicio ya usado en un turno falla por FK (a propósito)...")
+    // --- Test 6: eliminar un servicio ya usado funciona y no toca el historial ---
+    // El invariante que importa: el catálogo es editable sin límites, pero
+    // la plata ya facturada no se toca. Por eso el borrado es suave — la
+    // fila de appointment_services guarda el price_snapshot del turno, y
+    // v_client_history saca el nombre del servicio joineando services por
+    // id: si la fila desapareciera, el historial del cliente perdería el
+    // nombre y el turno perdería su precio.
+    console.log("Test 6: eliminar un servicio ya usado en un turno funciona sin romper el historial...")
     const { data: client, error: clientError } = await ownerClient
       .from("clients")
       .insert({ tenant_id: tenantId, full_name: "Cliente de prueba servicios" })
@@ -215,15 +250,34 @@ async function main() {
       .insert({ appointment_id: appointment.id, service_id: baseService.id, price_snapshot: 12000 })
     if (linkError) throw new Error(`No pude vincular servicio al turno: ${linkError.message}`)
 
-    const { error: usedDeleteError } = await ownerClient.from("services").delete().eq("id", baseService.id)
-    if (!usedDeleteError) {
-      console.error("  FALLO — se borró un servicio con appointment_services asociado, sin error de FK")
-      failures++
-    } else if (usedDeleteError.code !== "23503") {
-      console.error("  FALLO — falló pero con un código inesperado:", usedDeleteError.code, usedDeleteError.message)
+    const { error: usedDeleteError } = await ownerClient.rpc("soft_delete_service", {
+      p_service_id: baseService.id,
+    })
+    if (usedDeleteError) {
+      console.error("  FALLO — no se pudo eliminar un servicio ya usado:", usedDeleteError.message)
       failures++
     } else {
-      console.log("  OK — bloqueado por foreign_key_violation (23503)")
+      const { data: usedAfter } = await admin
+        .from("services")
+        .select("deleted_at, is_active")
+        .eq("id", baseService.id)
+        .maybeSingle()
+      const { data: linkAfter } = await admin
+        .from("appointment_services")
+        .select("price_snapshot")
+        .eq("appointment_id", appointment.id)
+        .eq("service_id", baseService.id)
+        .maybeSingle()
+
+      if (!usedAfter?.deleted_at || usedAfter.is_active !== false) {
+        console.error("  FALLO — el servicio no quedó marcado como eliminado ni desactivado:", usedAfter)
+        failures++
+      } else if (!linkAfter || Number(linkAfter.price_snapshot) !== 12000) {
+        console.error("  FALLO — se perdió la línea del turno (price_snapshot) al eliminar el servicio:", linkAfter)
+        failures++
+      } else {
+        console.log("  OK — eliminado, y el turno conserva su price_snapshot")
+      }
     }
 
     // --- Test 7: aislamiento cross-tenant de services ---

@@ -87,7 +87,12 @@ export function ServiceFormSheet({
 
   async function handleDelete() {
     if (!service) return
-    if (!window.confirm(`¿Eliminar "${service.name}"? Esta acción no se puede deshacer.`)) return
+    if (
+      !window.confirm(
+        `¿Eliminar "${service.name}"? Va a desaparecer del catálogo y no se va a poder elegir en turnos nuevos. Los turnos y el historial que ya lo usaron quedan intactos.`,
+      )
+    )
+      return
 
     setError(null)
     setDeleting(true)
@@ -96,9 +101,9 @@ export function ServiceFormSheet({
 
     if (!result.ok) {
       // Se muestra en el banner del Sheet y NO se cierra, a diferencia del
-      // window.alert de ClientDetailView: el error más probable acá es el de
-      // FK ("ya fue usado en turnos"), cuya salida natural es destildar
-      // "Activo" y guardar — es decir, quedarse en este mismo formulario.
+      // window.alert de ClientDetailView: los errores que quedan son de
+      // permiso ("solo el dueño puede eliminar"), y cerrar el formulario
+      // haría desaparecer la explicación junto con el botón que la provocó.
       setError(result.error)
       return
     }

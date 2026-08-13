@@ -17,6 +17,9 @@ export async function getServices(tenantId: string): Promise<ServiceRecord[]> {
     .from("services")
     .select("*")
     .eq("tenant_id", tenantId)
+    // Los eliminados siguen en la tabla para que el historial conserve el
+    // nombre y el precio del servicio — ver migrations/0011.
+    .is("deleted_at", null)
     .order("category", { nullsFirst: false })
     .order("name")
 

@@ -66,6 +66,10 @@ export async function getActiveServices(tenantId: string): Promise<AgendaService
     .select("id, name, duration_minutes, price")
     .eq("tenant_id", tenantId)
     .eq("is_active", true)
+    // Redundante con is_active (eliminar también desactiva, ver
+    // migrations/0011), pero explícito: si algún día un servicio eliminado
+    // se reactivara por otra vía, igual no debe ofrecerse en un turno nuevo.
+    .is("deleted_at", null)
     .order("name")
     .returns<AgendaService[]>()
 

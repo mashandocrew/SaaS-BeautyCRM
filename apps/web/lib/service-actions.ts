@@ -124,23 +124,25 @@ export async function deleteService(serviceId: string): Promise<ActionResult> {
   } = await supabase.auth.getUser()
   if (!user) return { ok: false, error: "Sesión inválida." }
 
-  const { data, error } = await supabase.from("services").delete().eq("id", serviceId).select("id").maybeSingle()
+  // Borrado suave vía RPC, no un DELETE: la fila tiene que sobrevivir para
+  // que el historial siga siendo legible (los turnos guardan su
+  // price_snapshot en appointment_services, y v_client_history saca el
+  // nombre del servicio joineando services por id). Ver
+  // migrations/0011_service_soft_delete.sql para el razonamiento completo.
+  // El RPC además chequea que sea el dueño, que es lo que la policy
+  // services_delete garantizaba para el DELETE real.
+  const { error } = await supabase.rpc("soft_delete_service", { p_service_id: serviceId })
 
   if (error) {
-    // 23503 = foreign_key_violation. appointment_services_service_id_fkey y
-    // client_history_service_id_fkey son NO ACTION (verificado contra la base
-    // real en la spec): un servicio con historial de uso no se borra
-    // silenciosamente. Para eso está desactivarlo.
-    if (error.code === "23503") {
-      return {
-        ok: false,
-        error: "No se puede eliminar: este servicio ya fue usado en turnos. Desactivalo en vez de borrarlo.",
-        code: error.code,
-      }
+    // Códigos que levanta app.soft_delete_service a propósito.
+    if (error.code === "42501") {
+      return { ok: false, error: "Solo el dueño puede eliminar servicios.", code: error.code }
+    }
+    if (error.code === "22023") {
+      return { ok: false, error: "Ese servicio ya no existe.", code: error.code }
     }
     return { ok: false, error: "No pudimos eliminar el servicio." }
   }
-  if (!data) return { ok: false, error: "No pudimos eliminar el servicio. Puede que no tengas permiso." }
 
   revalidatePath("/dashboard/servicios")
   revalidatePath("/dashboard/agenda")

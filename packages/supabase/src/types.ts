@@ -787,6 +787,7 @@ export type Database = {
       services: {
         Row: {
           category: string | null
+          deleted_at: string | null
           duration_minutes: number
           id: string
           is_active: boolean
@@ -796,6 +797,7 @@ export type Database = {
         }
         Insert: {
           category?: string | null
+          deleted_at?: string | null
           duration_minutes?: number
           id?: string
           is_active?: boolean
@@ -805,6 +807,7 @@ export type Database = {
         }
         Update: {
           category?: string | null
+          deleted_at?: string | null
           duration_minutes?: number
           id?: string
           is_active?: boolean
@@ -1049,6 +1052,12 @@ export type Database = {
           ends_at: string
           starts_at: string
         }[]
+      }
+      soft_delete_service: {
+        Args: {
+          p_service_id: string
+        }
+        Returns: undefined
       }
       provision_tenant: {
         Args: {
