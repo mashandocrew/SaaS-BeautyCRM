@@ -86,10 +86,48 @@ test.beforeAll(async ({ request }) => {
   if (membershipError) throw new Error(`No pude crear la membership de la operadora: ${membershipError.message}`)
 })
 
+/** Lo que el Sheet traía en sus inputs en el instante en que entró al DOM. */
+type SheetSnapshot = { name: string; duration: string }
+
 test("alta, agrupado por categoría, edición y desactivación de un servicio", async ({ page }) => {
   const baseURL = test.info().project.use.baseURL ?? "http://localhost:3000"
   const { data: linkData } = await admin.auth.admin.generateLink({ type: "magiclink", email: ownerEmail })
   const tokenHash = linkData?.properties?.hashed_token
+
+  // Sonda para la regresión de la carrera de siembra del form (ver el bloque
+  // "El Sheet nace sembrado" más abajo). A diferencia de Clientes, acá el
+  // Sheet recibe `service` desde un useState del listado (`editing`), no
+  // desde el server: ese objeto no cambia de identidad cuando aterriza un
+  // árbol revalidado, así que retener un server action no reproduce nada. La
+  // única ventana real es la de pintado→efecto, y para fijarla hay que mirar
+  // el DOM en el instante exacto en que el Sheet se inserta.
+  //
+  // Un MutationObserver alcanza porque su callback es un microtask: corre al
+  // final de la tarea que hizo la mutación, o sea después de que React
+  // commiteó el DOM pero antes de que haga flush de los efectos pasivos
+  // (que van por el scheduler, en un macrotask). Es exactamente el frame que
+  // el bug hacía visible.
+  await page.addInitScript(() => {
+    const probe = window as unknown as { __sheetInserts?: SheetSnapshot[] }
+    probe.__sheetInserts = []
+    new MutationObserver((records) => {
+      for (const record of records) {
+        for (const node of Array.from(record.addedNodes)) {
+          if (!(node instanceof HTMLElement)) continue
+          const dialog = node.matches('[role="dialog"]') ? node : node.querySelector('[role="dialog"]')
+          if (!dialog) continue
+          probe.__sheetInserts!.push({
+            name: dialog.querySelector<HTMLInputElement>("#service-name")?.value ?? "<sin input>",
+            duration: dialog.querySelector<HTMLInputElement>("#service-duration")?.value ?? "<sin input>",
+          })
+        }
+      }
+      // Sobre `document`, no sobre `document.documentElement`: los init
+      // scripts corren antes de que el parser cree el <html>, así que ahí
+      // documentElement todavía es null y el observer no se engancharía a
+      // nada. `document` siempre existe y con subtree cubre todo el árbol.
+    }).observe(document, { childList: true, subtree: true })
+  })
 
   await page.goto(`${baseURL}/auth/confirm?token_hash=${tokenHash}&type=magiclink&next=/dashboard/servicios`, {
     waitUntil: "commit",
@@ -115,6 +153,24 @@ test("alta, agrupado por categoría, edición y desactivación de un servicio", 
   // --- Edición ---
   await page.getByRole("button", { name: "Corte E2E" }).click()
   await expect(page.getByRole("heading", { name: "Editar servicio" })).toBeVisible()
+
+  // --- El Sheet nace sembrado, sin un frame con los valores por defecto ---
+  // Regresión del bug que hacía que una edición guardara 45 min en vez de
+  // los 60 tipeados. Cuando ServiceFormSheet sembraba su estado con un
+  // useEffect, el Sheet se insertaba en el DOM con los defaults ("" y "60")
+  // y recién un tick después se llenaba con los datos del servicio: quien
+  // tipeara en esa ventana veía su valor pisado en silencio.
+  //
+  // No lo verificamos tipeando rápido — esa es una carrera que el test gana
+  // casi siempre y deja de proteger. Verificamos el invariante estructural:
+  // en el instante en que el Sheet entra al DOM, sus inputs ya tienen que
+  // traer los datos del servicio. Con el bug presente esta sonda ve
+  // { name: "", duration: "60" }.
+  const onInsert = await page.evaluate(
+    () => (window as unknown as { __sheetInserts: SheetSnapshot[] }).__sheetInserts.at(-1),
+  )
+  expect(onInsert).toEqual({ name: "Corte E2E", duration: "45" })
+
   await page.getByLabel("Duración (minutos)").fill("60")
   await page.getByRole("button", { name: "Guardar cambios" }).click()
   await expect(page.getByRole("heading", { name: "Editar servicio" })).toBeHidden()
