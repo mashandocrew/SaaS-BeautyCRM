@@ -91,23 +91,6 @@ test("alta de cliente, ficha, y edición de nota técnica", async ({ page }) => 
   await page.waitForURL(/\/dashboard\/clientes\/[a-f0-9-]+$/)
   await expect(page.getByRole("heading", { name: "Cliente E2E Clientes" })).toBeVisible()
 
-  // --- Edición inmediatamente después del alta, sin recargar la página ---
-  // Repro de la carrera de estado que sí se detectó en servicios.spec.ts:
-  // ClientFormSheet sembraba su estado con un useEffect que corre después
-  // del pintado, así que había una ventana entre que el Sheet se veía en
-  // pantalla y que el campo se llenaba con el valor real. ClientesList no
-  // tiene edición inline, así que reproducimos la secuencia desde la ficha:
-  // crear (ya hecho arriba, con su router.refresh()) y acto seguido, en la
-  // misma sesión de cliente sin recargar la página, abrir "Editar" y escribir
-  // un teléfono nuevo. Si el bug estuviera presente, el valor tipeado se
-  // pisaría con el que trae la prop `client` y el teléfono viejo persistiría.
-  await page.getByRole("button", { name: "Editar" }).click()
-  await expect(page.getByRole("heading", { name: "Editar cliente" })).toBeVisible()
-  await page.getByLabel("Teléfono").fill("+54 9 261 555-9999")
-  await page.getByRole("button", { name: "Guardar cambios" }).click()
-  await expect(page.getByRole("heading", { name: "Editar cliente" })).toBeHidden()
-  await expect(page.getByText("+54 9 261 555-9999")).toBeVisible({ timeout: 10_000 })
-
   const clientIdMatch = page.url().match(/\/clientes\/([a-f0-9-]+)$/)
   const clientId = clientIdMatch?.[1]
   if (!clientId) throw new Error("No pude extraer el clientId de la URL")
@@ -117,9 +100,66 @@ test("alta de cliente, ficha, y edición de nota técnica", async ({ page }) => 
   await admin.from("client_history").insert({ tenant_id: tenantId, client_id: clientId, technical_notes: null })
   await page.reload()
 
-  // --- Editar la nota técnica ---
+  // --- Un refresh que aterriza con el form abierto no pisa lo ya tipeado ---
+  // Regresión de la carrera de estado del Sheet de edición. Cuando
+  // ClientFormSheet sembraba su estado con `useEffect(..., [open, client])`,
+  // el efecto no corría una sola vez: `client` es un objeto nuevo en cada
+  // render del server component, así que *cualquier* árbol fresco que
+  // llegara con el Sheet abierto — un revalidatePath, un router.refresh() —
+  // volvía a disparar el efecto y pisaba en silencio lo que la persona
+  // estaba tipeando.
+  //
+  // Reproducirlo por timing (tipear más rápido de lo que React corre el
+  // efecto después del pintado) es una carrera que el test gana casi
+  // siempre, así que no protege de nada. Lo determinístico es el orden entre
+  // "tipeé" y "llegó el árbol nuevo", y ese orden lo podemos fijar:
+  // interceptamos el POST del server action de la nota técnica y lo soltamos
+  // recién después de escribir el teléfono. El árbol revalidado aterriza
+  // entonces con el Sheet abierto y el campo ya cargado — exactamente la
+  // situación que el bug rompía.
+  let releaseNoteSave!: () => void
+  const noteSaveGate = new Promise<void>((resolve) => {
+    releaseNoteSave = resolve
+  })
+  let gated = false
+  await page.route(`**/dashboard/clientes/${clientId}`, async (route) => {
+    const request = route.request()
+    // Los server actions de Next viajan como POST a la URL de la página con
+    // el header `Next-Action`; el GET del documento no nos interesa.
+    if (!gated && request.method() === "POST" && request.headers()["next-action"]) {
+      gated = true
+      await noteSaveGate
+    }
+    await route.continue()
+  })
+
   await page.getByRole("button", { name: "Agregar nota" }).click()
   await page.locator("textarea").fill("Tono 7.3, sensibilidad en cutícula")
   await page.getByRole("button", { name: "Guardar" }).click()
-  await expect(page.getByText("Tono 7.3, sensibilidad en cutícula")).toBeVisible({ timeout: 10_000 })
+
+  // El action quedó retenido: abrimos el Sheet y tipeamos con toda calma.
+  await page.getByRole("button", { name: "Editar" }).click()
+  await expect(page.getByRole("heading", { name: "Editar cliente" })).toBeVisible()
+  await page.getByLabel("Teléfono").fill("+54 9 261 555-9999")
+
+  // Recién ahora dejamos pasar el action, y esperamos a que el árbol fresco
+  // se aplique con el Sheet todavía abierto. La señal tiene que ser un
+  // elemento que sólo pueda existir si el dato vino del server: el botón de
+  // la celda con el texto de la nota se renderiza desde
+  // `entry.technical_notes`, así que aparece únicamente con historial
+  // revalidado. (Un `getByText` del mismo texto no sirve: matchea el
+  // textarea que este test acaba de llenar, y el test sigue de largo antes
+  // de que el refresh aterrice — que es justo por qué la versión anterior de
+  // esta regresión pasaba en verde contra el código roto.)
+  releaseNoteSave()
+  await expect(page.getByRole("button", { name: "Tono 7.3, sensibilidad en cutícula" })).toBeVisible({
+    timeout: 15_000,
+  })
+
+  // El invariante: el re-render no tocó el input.
+  await expect(page.getByLabel("Teléfono")).toHaveValue("+54 9 261 555-9999")
+
+  await page.getByRole("button", { name: "Guardar cambios" }).click()
+  await expect(page.getByRole("heading", { name: "Editar cliente" })).toBeHidden()
+  await expect(page.getByText("+54 9 261 555-9999")).toBeVisible({ timeout: 10_000 })
 })
