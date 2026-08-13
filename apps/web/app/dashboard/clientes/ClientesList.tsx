@@ -78,7 +78,12 @@ export function ClientesList({ tenantId, clients }: { tenantId: string; clients:
         )}
       </Card>
 
-      <ClientFormSheet open={createOpen} onClose={() => setCreateOpen(false)} tenantId={tenantId} mode="create" />
+      {/* Montaje condicional (en vez de dejarlo siempre montado con `open`
+          alternando) para que el estado del form nazca ya sembrado sin
+          ventana de carrera — ver el comentario en ClientFormSheet.tsx. */}
+      {createOpen && (
+        <ClientFormSheet key="create" open onClose={() => setCreateOpen(false)} tenantId={tenantId} mode="create" />
+      )}
     </div>
   )
 }

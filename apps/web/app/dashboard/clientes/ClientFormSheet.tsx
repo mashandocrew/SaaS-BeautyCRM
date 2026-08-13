@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, type FormEvent } from "react"
+import { useState, type FormEvent } from "react"
 import { useRouter } from "next/navigation"
 import { Button, Field, Input, Sheet } from "@beautycrm/ui"
 import { createClient, updateClient, type ClientInput } from "@/lib/client-actions"
@@ -20,23 +20,22 @@ export function ClientFormSheet({
   client?: ClientRecord | null
 }) {
   const router = useRouter()
-  const [fullName, setFullName] = useState("")
-  const [phone, setPhone] = useState("")
-  const [email, setEmail] = useState("")
-  const [birthday, setBirthday] = useState("")
-  const [notes, setNotes] = useState("")
+  // Sembrado directamente desde `client` en los inicializadores de
+  // useState, no con un useEffect: los efectos corren después del pintado,
+  // así que había una ventana entre que el formulario se veía en pantalla y
+  // que el efecto lo llenaba con los valores reales — cualquier valor que el
+  // usuario tipeara en esa ventana se pisaba en silencio. Los padres
+  // (ClientesList y ClientDetailView) ahora montan este componente
+  // condicionalmente con una `key` por entidad, así que un `client` distinto
+  // siempre implica una instancia nueva, y sembrar en el inicializador
+  // alcanza.
+  const [fullName, setFullName] = useState(client?.full_name ?? "")
+  const [phone, setPhone] = useState(client?.phone ?? "")
+  const [email, setEmail] = useState(client?.email ?? "")
+  const [birthday, setBirthday] = useState(client?.birthday ?? "")
+  const [notes, setNotes] = useState(client?.notes ?? "")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (!open) return
-    setFullName(client?.full_name ?? "")
-    setPhone(client?.phone ?? "")
-    setEmail(client?.email ?? "")
-    setBirthday(client?.birthday ?? "")
-    setNotes(client?.notes ?? "")
-    setError(null)
-  }, [open, client])
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()

@@ -689,7 +689,7 @@ git commit -m "feat(web): capa de datos del módulo Servicios — tipos, query y
 ```tsx
 "use client"
 
-import { useEffect, useState, type FormEvent } from "react"
+import { useState, type FormEvent } from "react"
 import { useRouter } from "next/navigation"
 import { Trash } from "@phosphor-icons/react"
 import { Button, Field, Input, Sheet } from "@beautycrm/ui"
@@ -716,24 +716,22 @@ export function ServiceFormSheet({
   // Duración y precio viven como string, no como number: si fueran number,
   // borrar el contenido del input daría NaN y el campo se volvería
   // imposible de vaciar mientras se tipea. Se parsean recién en el submit.
-  const [name, setName] = useState("")
-  const [durationMinutes, setDurationMinutes] = useState("60")
-  const [price, setPrice] = useState("0")
-  const [category, setCategory] = useState("")
-  const [isActive, setIsActive] = useState(true)
+  // Sembrado directamente desde `service` en los inicializadores de
+  // useState, no con un useEffect: los efectos corren después del pintado,
+  // así que había una ventana entre que el formulario se veía en pantalla y
+  // que el efecto lo llenaba con los valores reales — cualquier valor que
+  // el usuario tipeara en esa ventana se pisaba en silencio. El padre
+  // (ServicesList) monta este componente condicionalmente con una `key`
+  // por entidad, así que un `service` distinto siempre implica una
+  // instancia nueva, y sembrar en el inicializador alcanza.
+  const [name, setName] = useState(service?.name ?? "")
+  const [durationMinutes, setDurationMinutes] = useState(String(service?.duration_minutes ?? 60))
+  const [price, setPrice] = useState(String(service?.price ?? 0))
+  const [category, setCategory] = useState(service?.category ?? "")
+  const [isActive, setIsActive] = useState(service?.is_active ?? true)
   const [loading, setLoading] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (!open) return
-    setName(service?.name ?? "")
-    setDurationMinutes(String(service?.duration_minutes ?? 60))
-    setPrice(String(service?.price ?? 0))
-    setCategory(service?.category ?? "")
-    setIsActive(service?.is_active ?? true)
-    setError(null)
-  }, [open, service])
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -1010,15 +1008,25 @@ export function ServicesList({
         ))
       )}
 
-      <ServiceFormSheet open={createOpen} onClose={() => setCreateOpen(false)} tenantId={tenantId} mode="create" />
-      <ServiceFormSheet
-        open={editing !== null}
-        onClose={() => setEditing(null)}
-        tenantId={tenantId}
-        mode="edit"
-        service={editing}
-        canDelete={canDelete}
-      />
+      {/* Montaje condicional con `key` en vez de dejar el Sheet siempre
+          montado con `open` alternando: así cada entidad (o el modo
+          "create") obtiene una instancia nueva de ServiceFormSheet, y su
+          estado nace ya sembrado desde `service` sin ventana de carrera —
+          ver el comentario en ServiceFormSheet.tsx. */}
+      {createOpen && (
+        <ServiceFormSheet key="create" open onClose={() => setCreateOpen(false)} tenantId={tenantId} mode="create" />
+      )}
+      {editing && (
+        <ServiceFormSheet
+          key={editing.id}
+          open
+          onClose={() => setEditing(null)}
+          tenantId={tenantId}
+          mode="edit"
+          service={editing}
+          canDelete={canDelete}
+        />
+      )}
     </div>
   )
 }

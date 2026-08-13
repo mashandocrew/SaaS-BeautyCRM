@@ -91,6 +91,23 @@ test("alta de cliente, ficha, y edición de nota técnica", async ({ page }) => 
   await page.waitForURL(/\/dashboard\/clientes\/[a-f0-9-]+$/)
   await expect(page.getByRole("heading", { name: "Cliente E2E Clientes" })).toBeVisible()
 
+  // --- Edición inmediatamente después del alta, sin recargar la página ---
+  // Repro de la carrera de estado que sí se detectó en servicios.spec.ts:
+  // ClientFormSheet sembraba su estado con un useEffect que corre después
+  // del pintado, así que había una ventana entre que el Sheet se veía en
+  // pantalla y que el campo se llenaba con el valor real. ClientesList no
+  // tiene edición inline, así que reproducimos la secuencia desde la ficha:
+  // crear (ya hecho arriba, con su router.refresh()) y acto seguido, en la
+  // misma sesión de cliente sin recargar la página, abrir "Editar" y escribir
+  // un teléfono nuevo. Si el bug estuviera presente, el valor tipeado se
+  // pisaría con el que trae la prop `client` y el teléfono viejo persistiría.
+  await page.getByRole("button", { name: "Editar" }).click()
+  await expect(page.getByRole("heading", { name: "Editar cliente" })).toBeVisible()
+  await page.getByLabel("Teléfono").fill("+54 9 261 555-9999")
+  await page.getByRole("button", { name: "Guardar cambios" }).click()
+  await expect(page.getByRole("heading", { name: "Editar cliente" })).toBeHidden()
+  await expect(page.getByText("+54 9 261 555-9999")).toBeVisible({ timeout: 10_000 })
+
   const clientIdMatch = page.url().match(/\/clientes\/([a-f0-9-]+)$/)
   const clientId = clientIdMatch?.[1]
   if (!clientId) throw new Error("No pude extraer el clientId de la URL")

@@ -111,7 +111,12 @@ export function ClientDetailView({ tenantId, detail }: { tenantId: string; detai
         )}
       </Card>
 
-      <ClientFormSheet open={editOpen} onClose={() => setEditOpen(false)} tenantId={tenantId} mode="edit" client={client} />
+      {/* Montaje condicional con `key` por cliente — ver el comentario en
+          ClientFormSheet.tsx sobre por qué esto elimina la ventana de
+          carrera entre el pintado y la siembra del estado. */}
+      {editOpen && (
+        <ClientFormSheet key={client.id} open onClose={() => setEditOpen(false)} tenantId={tenantId} mode="edit" client={client} />
+      )}
     </div>
   )
 }

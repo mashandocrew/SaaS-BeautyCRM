@@ -136,15 +136,25 @@ export function ServicesList({
         ))
       )}
 
-      <ServiceFormSheet open={createOpen} onClose={() => setCreateOpen(false)} tenantId={tenantId} mode="create" />
-      <ServiceFormSheet
-        open={editing !== null}
-        onClose={() => setEditing(null)}
-        tenantId={tenantId}
-        mode="edit"
-        service={editing}
-        canDelete={canDelete}
-      />
+      {/* Montaje condicional con `key` en vez de dejar el Sheet siempre
+          montado con `open` alternando: así cada entidad (o el modo
+          "create") obtiene una instancia nueva de ServiceFormSheet, y su
+          estado nace ya sembrado desde `service` sin ventana de carrera —
+          ver el comentario en ServiceFormSheet.tsx. */}
+      {createOpen && (
+        <ServiceFormSheet key="create" open onClose={() => setCreateOpen(false)} tenantId={tenantId} mode="create" />
+      )}
+      {editing && (
+        <ServiceFormSheet
+          key={editing.id}
+          open
+          onClose={() => setEditing(null)}
+          tenantId={tenantId}
+          mode="edit"
+          service={editing}
+          canDelete={canDelete}
+        />
+      )}
     </div>
   )
 }

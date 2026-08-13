@@ -20,6 +20,7 @@ const ownerEmail = `e2e-servicios-owner-${Date.now()}@example.com`
 const businessName = `E2E Servicios Salon ${Date.now()}`
 
 let ownerId: string | undefined
+let operatorId: string | undefined
 let tenantId: string | undefined
 
 test.afterAll(async () => {
@@ -30,9 +31,9 @@ test.afterAll(async () => {
     await admin.from("commission_rules").delete().eq("tenant_id", tenantId)
     await admin.from("tenants").delete().eq("id", tenantId)
   }
-  if (ownerId) {
-    await admin.from("users").delete().eq("id", ownerId)
-    await admin.auth.admin.deleteUser(ownerId)
+  for (const id of [ownerId, operatorId].filter((v): v is string => !!v)) {
+    await admin.from("users").delete().eq("id", id)
+    await admin.auth.admin.deleteUser(id)
   }
 })
 
@@ -60,6 +61,29 @@ test.beforeAll(async ({ request }) => {
   })
   if (tenantError || !tenantRow?.[0]) throw new Error(`provision_tenant falló: ${tenantError?.message}`)
   tenantId = tenantRow[0].tenant_id
+  const branchId = tenantRow[0].branch_id
+
+  // AgendaGrid no dibuja ninguna celda ".agenda-grid-slot" si la sucursal
+  // no tiene operadoras (ver AgendaGrid.tsx: `if (operators.length === 0)
+  // return <p>...</p>`) — sin esto, el paso final de este test (verificar
+  // que un servicio desactivado ya no aparece en el modal de nuevo turno)
+  // no tiene ninguna celda para hacer click. Mismo patrón que
+  // agenda.spec.ts.
+  const { data: operatorData, error: operatorError } = await admin.auth.admin.createUser({
+    email: `e2e-servicios-operator-${Date.now()}@example.com`,
+    email_confirm: true,
+  })
+  if (operatorError || !operatorData.user) throw new Error(`No pude crear la operadora: ${operatorError?.message}`)
+  operatorId = operatorData.user.id
+  await admin.from("users").update({ full_name: "Operadora E2E Servicios" }).eq("id", operatorId)
+
+  const { error: membershipError } = await admin.from("memberships").insert({
+    tenant_id: tenantId,
+    user_id: operatorId,
+    branch_id: branchId,
+    role: "operator",
+  })
+  if (membershipError) throw new Error(`No pude crear la membership de la operadora: ${membershipError.message}`)
 })
 
 test("alta, agrupado por categoría, edición y desactivación de un servicio", async ({ page }) => {
@@ -97,7 +121,14 @@ test("alta, agrupado por categoría, edición y desactivación de un servicio", 
   await expect(page.getByText("60 min")).toBeVisible({ timeout: 10_000 })
 
   // --- Desactivación desde el toggle de la fila ---
-  await page.getByRole("switch", { name: "Servicio activo: Corte E2E" }).uncheck()
+  // Click + assertion con retry en vez de .uncheck() (que verifica el
+  // estado con un solo chequeo inmediato después del click): el toggle es
+  // un checkbox controlado por `is_active` desde el server, así que no
+  // cambia visualmente hasta que la server action responde y
+  // router.refresh() re-renderiza con el dato fresco — una operación
+  // async, no instantánea.
+  await page.getByRole("switch", { name: "Servicio activo: Corte E2E" }).click()
+  await expect(page.getByRole("switch", { name: "Servicio activo: Corte E2E" })).not.toBeChecked({ timeout: 10_000 })
   await expect(page.getByText("Inactivo")).toBeVisible({ timeout: 10_000 })
 
   // --- La consecuencia real: ya no se ofrece al crear un turno ---
