@@ -1,5 +1,12 @@
 # Módulo Servicios — Plan de Implementación
 
+> **Ejecutado y en `main` (2026-08-13). Documento histórico — no seguir sus pasos.**
+> Todo lo que dice sobre el borrado quedó obsoleto ese mismo día:
+> `migrations/0011_service_soft_delete.sql` reemplazó el `DELETE` real (que
+> fallaba con `23503` para cualquier servicio ya usado en un turno) por un
+> borrado suave que siempre funciona. Ver la nota de actualización en
+> `docs/superpowers/specs/2026-08-12-servicios-module-design.md`.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Construir el frontend del módulo Servicios de BeautyCRM en `/dashboard/servicios`: catálogo agrupado por categoría, alta/edición en Sheet, activar/desactivar por fila, y borrado real restringido a Dueño — con la capa de datos (tipos, query, server actions) que lo soporta.
