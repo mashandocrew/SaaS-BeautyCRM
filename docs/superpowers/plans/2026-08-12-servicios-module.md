@@ -800,7 +800,13 @@ export function ServiceFormSheet({
 
   return (
     <Sheet open={open} onClose={onClose} title={mode === "create" ? "Nuevo servicio" : "Editar servicio"} side="right">
-      <form onSubmit={handleSubmit}>
+      {/* noValidate: la validación HTML5 de min/step bloqueaba el submit
+          nativamente y en silencio (con min=1 step=5 el navegador solo
+          acepta 1, 6, 11, 16… así que 45 y 60 minutos eran inválidos; con
+          min=0 step=100, un precio de 12750 también). La validación real
+          vive en handleSubmit, que además muestra el error en el banner
+          del Sheet en vez de en un tooltip nativo. */}
+      <form onSubmit={handleSubmit} noValidate>
         {error ? <p className="error-banner">{error}</p> : null}
 
         <Field label="Nombre" htmlFor="service-name">
