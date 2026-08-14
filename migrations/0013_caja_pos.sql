@@ -203,3 +203,134 @@ begin
   return new;
 end;
 $function$;
+
+-- ---------------------------------------------------------------------------
+-- 4) Anulación de ventas y sesión única por sucursal
+-- ---------------------------------------------------------------------------
+-- Las columnas de anulación van acá arriba porque close_cash_session ya las
+-- necesita: una venta anulada no cuenta en el arqueo.
+alter table public.sales add column if not exists voided_at   timestamptz;
+alter table public.sales add column if not exists voided_by   uuid references public.users(id);
+alter table public.sales add column if not exists void_reason text;
+
+-- En la base y no en la aplicación: dos pestañas abiertas saltean cualquier
+-- chequeo hecho con un select previo.
+create unique index if not exists one_open_session_per_branch
+  on public.cash_sessions (branch_id) where closed_at is null;
+
+create or replace function app.open_cash_session(
+  p_branch_id      uuid,
+  p_opening_amount numeric
+)
+returns uuid
+language plpgsql
+security definer
+set search_path to 'public'
+as $function$
+declare
+  v_tenant_id  uuid;
+  v_session_id uuid;
+begin
+  select tenant_id into v_tenant_id from branches where id = p_branch_id;
+  if v_tenant_id is null then
+    raise exception 'BRANCH_NOT_FOUND' using errcode = '22023';
+  end if;
+
+  if not app.has_role(v_tenant_id, array['owner','supervisor']::membership_role[]) then
+    raise exception 'NOT_ALLOWED_TO_OPEN_SESSION' using errcode = '42501';
+  end if;
+
+  if coalesce(p_opening_amount, 0) < 0 then
+    raise exception 'NEGATIVE_OPENING_AMOUNT' using errcode = '22023';
+  end if;
+
+  if exists (select 1 from cash_sessions
+              where branch_id = p_branch_id and closed_at is null) then
+    raise exception 'SESSION_ALREADY_OPEN' using errcode = '22023';
+  end if;
+
+  insert into cash_sessions (tenant_id, branch_id, opened_by, opening_amount)
+  values (v_tenant_id, p_branch_id, auth.uid(), coalesce(p_opening_amount, 0))
+  returning id into v_session_id;
+
+  return v_session_id;
+end;
+$function$;
+
+create or replace function app.close_cash_session(
+  p_session_id    uuid,
+  p_counted_total numeric
+)
+returns table(expected_total numeric, counted_total numeric, difference numeric)
+language plpgsql
+security definer
+set search_path to 'public'
+as $function$
+declare
+  v_session  cash_sessions%rowtype;
+  v_expected numeric;
+  v_diff     numeric;
+begin
+  select * into v_session from cash_sessions where id = p_session_id for update;
+  if not found then
+    raise exception 'SESSION_NOT_FOUND' using errcode = '22023';
+  end if;
+
+  if not app.has_role(v_session.tenant_id, array['owner','supervisor']::membership_role[]) then
+    raise exception 'NOT_ALLOWED_TO_CLOSE_SESSION' using errcode = '42501';
+  end if;
+
+  if v_session.closed_at is not null then
+    raise exception 'SESSION_ALREADY_CLOSED' using errcode = '22023';
+  end if;
+
+  if coalesce(p_counted_total, 0) < 0 then
+    raise exception 'NEGATIVE_COUNTED_TOTAL' using errcode = '22023';
+  end if;
+
+  -- Sólo efectivo: tarjeta, transferencia y MP no están en el cajón, y
+  -- meterlos en el esperado haría que el arqueo nunca cierre.
+  --
+  -- Y sólo ventas no anuladas: si una venta anulada contara, el efectivo
+  -- que entró y salió del cajón quedaría sumado de más.
+  select v_session.opening_amount + coalesce(sum(pay.amount), 0)
+    into v_expected
+    from payments pay
+    join sales s on s.id = pay.sale_id
+   where s.cash_session_id = p_session_id
+     and s.voided_at is null
+     and pay.method = 'cash';
+
+  v_diff := coalesce(p_counted_total, 0) - v_expected;
+
+  update cash_sessions
+     set closed_by      = auth.uid(),
+         closed_at      = now(),
+         expected_total = v_expected,
+         counted_total  = coalesce(p_counted_total, 0),
+         difference     = v_diff
+   where id = p_session_id;
+
+  return query select v_expected, coalesce(p_counted_total, 0), v_diff;
+end;
+$function$;
+
+-- Wrappers públicos: mismo patrón que 0012 — revoke all + grant a
+-- authenticated, con la autorización adentro vía app.has_role.
+create or replace function public.open_cash_session(
+  p_branch_id uuid, p_opening_amount numeric
+) returns uuid
+language sql security definer set search_path to 'public'
+as $$ select app.open_cash_session(p_branch_id, p_opening_amount) $$;
+
+revoke all on function public.open_cash_session(uuid, numeric) from public;
+grant execute on function public.open_cash_session(uuid, numeric) to authenticated;
+
+create or replace function public.close_cash_session(
+  p_session_id uuid, p_counted_total numeric
+) returns table(expected_total numeric, counted_total numeric, difference numeric)
+language sql security definer set search_path to 'public'
+as $$ select * from app.close_cash_session(p_session_id, p_counted_total) $$;
+
+revoke all on function public.close_cash_session(uuid, numeric) from public;
+grant execute on function public.close_cash_session(uuid, numeric) to authenticated;

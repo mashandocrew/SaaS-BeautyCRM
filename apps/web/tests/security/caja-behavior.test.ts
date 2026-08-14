@@ -128,6 +128,53 @@ async function main() {
         )
       }
     }
+    // --- Test 2 ---
+    console.log("Test 2: sólo hay una caja abierta por sucursal a la vez...")
+    {
+      const { data: first, error: firstError } = await ownerClient.rpc("open_cash_session", {
+        p_branch_id: branchId,
+        p_opening_amount: 1000,
+      })
+      const { error: secondError } = await ownerClient.rpc("open_cash_session", {
+        p_branch_id: branchId,
+        p_opening_amount: 2000,
+      })
+
+      if (!firstError && first && secondError) {
+        console.log("  OK — la primera abrió, la segunda fue rechazada")
+      } else {
+        failures++
+        console.error(
+          `  FALLO — primera=${JSON.stringify(firstError ?? first)}, segunda=${JSON.stringify(secondError)}`,
+        )
+      }
+    }
+
+    // --- Test 3 ---
+    console.log("Test 3: la operadora no puede abrir ni cerrar caja...")
+    {
+      const operator = await createTestUser("operator")
+      userIds.push(operator.id)
+      await admin.from("memberships").insert({
+        tenant_id: tenantId,
+        user_id: operator.id,
+        branch_id: branchId,
+        role: "operator",
+      })
+      const operatorClient = await signIn(operator.email, operator.password)
+
+      const { error } = await operatorClient.rpc("open_cash_session", {
+        p_branch_id: branchId,
+        p_opening_amount: 500,
+      })
+
+      if (error?.code === "42501") {
+        console.log("  OK — rechazada con 42501")
+      } else {
+        failures++
+        console.error(`  FALLO — esperaba 42501, llegó: ${JSON.stringify(error)}`)
+      }
+    }
   } catch (err) {
     failures++
     console.error("Error inesperado:", err instanceof Error ? err.message : err)
