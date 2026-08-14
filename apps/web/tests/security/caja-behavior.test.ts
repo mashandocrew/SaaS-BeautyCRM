@@ -175,11 +175,283 @@ async function main() {
         console.error(`  FALLO — esperaba 42501, llegó: ${JSON.stringify(error)}`)
       }
     }
+    // --- Test 4 ---
+    console.log("Test 4: el precio lo pone el servidor, no el cliente...")
+    {
+      // No hay forma de mandar unit_price: confirm_sale no lo acepta. El
+      // test verifica que lo cobrado sale del catálogo (5000).
+      const { data, error } = await ownerClient.rpc("confirm_sale", {
+        p_branch_id: branchId,
+        p_client_id: null,
+        p_appointment_id: null,
+        p_items: [{ item_id: productId, item_type: "product", quantity: 1, operator_id: null }],
+        p_payments: [{ method: "cash", amount: 5000 }],
+        p_discount: 0,
+      })
+
+      if (!error && Number(data?.[0]?.total) === 5000) {
+        console.log("  OK — cobró 5000, el precio del catálogo")
+      } else {
+        failures++
+        console.error(`  FALLO — data=${JSON.stringify(data)}, error=${JSON.stringify(error)}`)
+      }
+    }
+
+    // --- Test 5 ---
+    console.log("Test 5: los pagos tienen que sumar el total...")
+    {
+      const { error } = await ownerClient.rpc("confirm_sale", {
+        p_branch_id: branchId,
+        p_client_id: null,
+        p_appointment_id: null,
+        p_items: [{ item_id: productId, item_type: "product", quantity: 1, operator_id: null }],
+        p_payments: [{ method: "cash", amount: 3000 }],
+        p_discount: 0,
+      })
+
+      const { count } = await admin
+        .from("sales")
+        .select("id", { count: "exact", head: true })
+        .eq("tenant_id", tenantId)
+
+      // Sólo tienen que existir las 2 ventas de los Tests 1 y 4: la
+      // rechazada no puede haber dejado nada a medio escribir.
+      if (error?.message?.includes("PAYMENTS_DONT_MATCH_TOTAL") && count === 2) {
+        console.log("  OK — rechazado y sin venta a medio escribir")
+      } else {
+        failures++
+        console.error(`  FALLO — error=${JSON.stringify(error)}, ventas=${count} (esperaba 2)`)
+      }
+    }
+
+    // --- Test 6 ---
+    console.log("Test 6: nadie escribe sales, sale_items ni payments directo...")
+    {
+      const { error: saleError } = await ownerClient
+        .from("sales")
+        .insert({ tenant_id: tenantId, branch_id: branchId, total: 1 })
+
+      const { data: existing } = await admin
+        .from("sales").select("id").eq("tenant_id", tenantId).limit(1).single()
+
+      const { error: itemError } = await ownerClient.from("sale_items").insert({
+        sale_id: existing!.id, item_type: "product", item_id: productId,
+        quantity: 1, unit_price: 1,
+      })
+      const { error: payError } = await ownerClient
+        .from("payments")
+        .insert({ sale_id: existing!.id, method: "cash", amount: 1 })
+
+      if (saleError && itemError && payError) {
+        console.log("  OK — las tres escrituras directas quedaron bloqueadas")
+      } else {
+        failures++
+        console.error(
+          `  FALLO — sale=${JSON.stringify(saleError)}, item=${JSON.stringify(itemError)}, pay=${JSON.stringify(payError)}`,
+        )
+      }
+    }
+
+    // --- Test 7 ---
+    console.log("Test 7: anular devuelve el stock y revierte la comisión sin borrar nada...")
+    {
+      const { data: before } = await admin
+        .from("inventory").select("current_stock")
+        .eq("branch_id", branchId).eq("item_id", productId).eq("item_type", "product").single()
+
+      const { data: sales } = await admin
+        .from("sales").select("id").eq("tenant_id", tenantId)
+        .is("voided_at", null).order("created_at", { ascending: false }).limit(1)
+      const saleId = sales![0].id
+
+      const { error } = await ownerClient.rpc("void_sale", {
+        p_sale_id: saleId,
+        p_reason: "cobrada por error",
+      })
+
+      const { data: after } = await admin
+        .from("inventory").select("current_stock")
+        .eq("branch_id", branchId).eq("item_id", productId).eq("item_type", "product").single()
+
+      const { data: sale } = await admin
+        .from("sales").select("voided_at, void_reason").eq("id", saleId).single()
+
+      const { count: itemsLeft } = await admin
+        .from("sale_items").select("id", { count: "exact", head: true }).eq("sale_id", saleId)
+
+      const stockVolvio = Number(after?.current_stock) === Number(before?.current_stock) + 1
+
+      if (!error && stockVolvio && sale?.voided_at && sale.void_reason === "cobrada por error" && itemsLeft === 1) {
+        console.log("  OK — stock devuelto, venta marcada anulada, ítems intactos")
+      } else {
+        failures++
+        console.error(
+          `  FALLO — error=${JSON.stringify(error)}, stock ${before?.current_stock}→${after?.current_stock}, sale=${JSON.stringify(sale)}, items=${itemsLeft}`,
+        )
+      }
+    }
+
+    // --- Test 8 ---
+    console.log("Test 8: una venta anulada no cuenta en el arqueo...")
+    {
+      const { data: session } = await admin
+        .from("cash_sessions").select("id, opening_amount")
+        .eq("branch_id", branchId).is("closed_at", null).single()
+
+      const { data, error } = await ownerClient.rpc("close_cash_session", {
+        p_session_id: session!.id,
+        p_counted_total: 1000,
+      })
+
+      // Sólo quedó la venta del Test 4 (5000 en efectivo), pero se anuló en
+      // el Test 7. Así que el esperado es sólo el monto de apertura: 1000.
+      const expected = Number(data?.[0]?.expected_total)
+      if (!error && expected === 1000 && Number(data?.[0]?.difference) === 0) {
+        console.log("  OK — esperado 1000 (sólo la apertura), diferencia 0")
+      } else {
+        failures++
+        console.error(`  FALLO — data=${JSON.stringify(data)}, error=${JSON.stringify(error)}`)
+      }
+    }
+
+    // --- Test 10 ---
+    console.log("Test 10: un turno se cobra al precio que se le cotizó, y una sola vez...")
+    {
+      // Un servicio que se agendó a 8000 y después subió a 12000 en el
+      // catálogo: cobrar el catálogo actual sería cobrarle al cliente
+      // distinto de lo que se le dijo al agendar.
+      const { data: service } = await ownerClient
+        .from("services")
+        .insert({ tenant_id: tenantId, name: "Corte Caja Test", price: 8000, duration_minutes: 30 })
+        .select("id")
+        .single()
+
+      const { data: client } = await ownerClient
+        .from("clients")
+        .insert({ tenant_id: tenantId, full_name: "Clienta Caja Test" })
+        .select("id")
+        .single()
+
+      const { data: appt } = await admin
+        .from("appointments")
+        .insert({
+          tenant_id: tenantId, branch_id: branchId, client_id: client!.id,
+          starts_at: new Date().toISOString(),
+          ends_at: new Date(Date.now() + 30 * 60_000).toISOString(),
+          status: "in_progress",
+        })
+        .select("id")
+        .single()
+
+      await admin.from("appointment_services").insert({
+        appointment_id: appt!.id, service_id: service!.id, price_snapshot: 8000,
+      })
+
+      // El catálogo sube DESPUÉS de agendar.
+      await ownerClient.from("services").update({ price: 12000 }).eq("id", service!.id)
+
+      await ownerClient.rpc("open_cash_session", { p_branch_id: branchId, p_opening_amount: 0 })
+
+      const { data: charged, error: chargeError } = await ownerClient.rpc("confirm_sale", {
+        p_branch_id: branchId,
+        p_client_id: client!.id,
+        p_appointment_id: appt!.id,
+        p_items: [{ item_id: service!.id, item_type: "service", quantity: 1, operator_id: null }],
+        p_payments: [{ method: "cash", amount: 8000 }],
+        p_discount: 0,
+      })
+
+      // Y cobrarlo de nuevo tiene que fallar.
+      const { error: dobleError } = await ownerClient.rpc("confirm_sale", {
+        p_branch_id: branchId,
+        p_client_id: client!.id,
+        p_appointment_id: appt!.id,
+        p_items: [{ item_id: service!.id, item_type: "service", quantity: 1, operator_id: null }],
+        p_payments: [{ method: "cash", amount: 8000 }],
+        p_discount: 0,
+      })
+
+      const { data: apptAfter } = await admin
+        .from("appointments").select("status").eq("id", appt!.id).single()
+
+      const precioOk = !chargeError && Number(charged?.[0]?.total) === 8000
+      const dobleOk = dobleError?.message?.includes("APPOINTMENT_ALREADY_CHARGED")
+      const cerradoOk = apptAfter?.status === "done"
+
+      if (precioOk && dobleOk && cerradoOk) {
+        console.log("  OK — cobró 8000 (el cotizado), rechazó el doble cobro, y cerró el turno")
+      } else {
+        failures++
+        console.error(
+          `  FALLO — total=${charged?.[0]?.total} (esperaba 8000), doble=${JSON.stringify(dobleError)}, status=${apptAfter?.status}`,
+        )
+      }
+    }
+
+    // --- Test 11 ---
+    console.log("Test 11: sin caja abierta no se puede cobrar...")
+    {
+      const { data: open } = await admin
+        .from("cash_sessions").select("id").eq("branch_id", branchId).is("closed_at", null)
+      for (const s of open ?? []) {
+        await ownerClient.rpc("close_cash_session", { p_session_id: s.id, p_counted_total: 0 })
+      }
+
+      const { error } = await ownerClient.rpc("confirm_sale", {
+        p_branch_id: branchId,
+        p_client_id: null,
+        p_appointment_id: null,
+        p_items: [{ item_id: productId, item_type: "product", quantity: 1, operator_id: null }],
+        p_payments: [{ method: "cash", amount: 5000 }],
+        p_discount: 0,
+      })
+
+      if (error?.message?.includes("NO_OPEN_SESSION")) {
+        console.log("  OK — rechazado por caja cerrada")
+      } else {
+        failures++
+        console.error(`  FALLO — esperaba NO_OPEN_SESSION, llegó: ${JSON.stringify(error)}`)
+      }
+    }
+
+    // --- Test 9 ---
+    console.log("Test 9: un miembro de otro tenant no puede cobrar acá...")
+    {
+      const intruder = await createTestUser("intruder")
+      userIds.push(intruder.id)
+      const intruderClient = await signIn(intruder.email, intruder.password)
+      await intruderClient.rpc("provision_tenant", { p_business_name: "Otro Salon Caja" })
+
+      const { error } = await intruderClient.rpc("confirm_sale", {
+        p_branch_id: branchId,
+        p_client_id: null,
+        p_appointment_id: null,
+        p_items: [{ item_id: productId, item_type: "product", quantity: 1, operator_id: null }],
+        p_payments: [{ method: "cash", amount: 5000 }],
+        p_discount: 0,
+      })
+
+      if (error?.code === "42501") {
+        console.log("  OK — rechazado con 42501")
+      } else {
+        failures++
+        console.error(`  FALLO — esperaba 42501, llegó: ${JSON.stringify(error)}`)
+      }
+    }
   } catch (err) {
     failures++
     console.error("Error inesperado:", err instanceof Error ? err.message : err)
   } finally {
     console.log("Limpiando datos de prueba...")
+    // El Test 9 le provisiona un tenant propio al intruso.
+    const { data: strayTenants } = await admin
+      .from("tenants").select("id").eq("business_name", "Otro Salon Caja")
+    for (const t of strayTenants ?? []) {
+      await admin.from("memberships").delete().eq("tenant_id", t.id)
+      await admin.from("branches").delete().eq("tenant_id", t.id)
+      await admin.from("commission_rules").delete().eq("tenant_id", t.id)
+      await admin.from("tenants").delete().eq("id", t.id)
+    }
     if (tenantId) {
       const { data: branches } = await admin.from("branches").select("id").eq("tenant_id", tenantId)
       const branchIds = (branches ?? []).map((b) => b.id)
