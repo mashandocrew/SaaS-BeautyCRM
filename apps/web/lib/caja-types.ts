@@ -58,3 +58,13 @@ export type AppointmentCharge = {
   /** Sólo para mostrar: el que vale es el que resuelve el RPC. */
   preview: { name: string; price: number }[]
 }
+
+/** Una persona del equipo, para el panel de permisos de caja. */
+export type TeamMember = {
+  user_id: string
+  name: string
+  role: string
+  can_operate_cash: boolean
+  /** Dueña y encargada lo tienen por el rol: el switch va deshabilitado. */
+  locked: boolean
+}

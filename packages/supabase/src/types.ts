@@ -561,6 +561,7 @@ export type Database = {
       memberships: {
         Row: {
           branch_id: string | null
+          can_operate_cash: boolean
           commission_rule_id: string | null
           created_at: string
           google_calendar_token: Json | null
@@ -571,6 +572,7 @@ export type Database = {
         }
         Insert: {
           branch_id?: string | null
+          can_operate_cash?: boolean
           commission_rule_id?: string | null
           created_at?: string
           google_calendar_token?: Json | null
@@ -581,6 +583,7 @@ export type Database = {
         }
         Update: {
           branch_id?: string | null
+          can_operate_cash?: boolean
           commission_rule_id?: string | null
           created_at?: string
           google_calendar_token?: Json | null
@@ -1216,6 +1219,14 @@ export type Database = {
           p_note?: string | null
         }
         Returns: number
+      }
+      set_cash_permission: {
+        Args: {
+          p_can: boolean
+          p_tenant_id: string
+          p_user_id: string
+        }
+        Returns: undefined
       }
       soft_delete_inventory_item: {
         Args: {

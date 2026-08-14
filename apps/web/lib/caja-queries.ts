@@ -1,7 +1,7 @@
 import "server-only"
 import { createClient } from "@beautycrm/supabase/server"
 import type {
-  AppointmentCharge, CashSession, CatalogItem, OperatorOption, PaymentMethod, SaleRecord,
+  AppointmentCharge, CashSession, CatalogItem, OperatorOption, PaymentMethod, SaleRecord, TeamMember,
 } from "./caja-types"
 
 /** La caja abierta de la sucursal, o null. Hay a lo sumo una (índice único). */
@@ -169,4 +169,33 @@ export async function getAppointmentCharge(appointmentId: string): Promise<Appoi
       price: Number(a.price_snapshot),
     })),
   }
+}
+
+/**
+ * El equipo del salón con su permiso de caja.
+ *
+ * Dueña y encargada pueden cobrar por su rol, así que el flag no les aplica
+ * — se muestran con el switch prendido y bloqueado, para que quede claro que
+ * pueden cobrar pero que no es algo que se les pueda sacar acá.
+ */
+export async function getTeam(tenantId: string): Promise<TeamMember[]> {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from("memberships")
+    .select("user_id, role, can_operate_cash, users(full_name)")
+    .eq("tenant_id", tenantId)
+    .returns<
+      { user_id: string; role: string; can_operate_cash: boolean; users: { full_name: string | null } | null }[]
+    >()
+
+  return (data ?? []).map((m) => {
+    const locked = m.role === "owner" || m.role === "supervisor"
+    return {
+      user_id: m.user_id,
+      name: m.users?.full_name ?? "Sin nombre",
+      role: m.role,
+      can_operate_cash: locked || m.can_operate_cash,
+      locked,
+    }
+  })
 }

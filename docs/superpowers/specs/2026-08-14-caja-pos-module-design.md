@@ -26,7 +26,7 @@ lo demás en este diseño se deduce de esa frase.
 | Decisión | Elegido | Por qué |
 |---|---|---|
 | Alcance v1 | Cobro de turnos **y** venta de mostrador, con arqueo | Sin mostrador, los productos de reventa cargados en Inventario no tienen salida |
-| Quién opera la caja | Dueña y supervisora | Coherente con el resto de `/dashboard`; la operadora cobra comisión vía `operator_id`, pero no maneja la caja |
+| Quién opera la caja | Dueña, encargada, y toda operadora con el permiso `can_operate_cash` prendido | En un salón real la persona del mostrador suele ser una operadora; cargarla como encargada para que pueda cobrar le daría también agenda, clientes, servicios e inventario completos |
 | Error de cobro | Anulación de la venta entera, sólo dueña, con compensación | Cobrar mal pasa todo el tiempo; sin salida, el arqueo no cierra nunca |
 | Camino de escritura | Un solo RPC por operación | Cuatro escrituras acopladas necesitan una transacción, y el precio no puede venir del cliente |
 
@@ -196,6 +196,42 @@ con un `curl`.
 Las tres pasan a **sólo `select`**, mismo criterio que `inventory_movements` en
 `0012`. El único camino de escritura son los RPC.
 
+## Permiso de caja por persona (`0014`)
+
+`memberships.can_operate_cash boolean not null default false`. El default en
+`false` es lo que hace el cambio compatible hacia atrás: toda operadora
+existente conserva exactamente el comportamiento anterior.
+
+`app.can_operate_cash(tenant_id)` devuelve true para dueña y encargada
+siempre —lo tienen por el rol, no se les puede sacar— y para la operadora
+sólo con el flag prendido. `confirm_sale`, `open_cash_session` y
+`close_cash_session` lo usan en lugar de `has_role`.
+
+**`void_sale` no cambia: sigue siendo sólo de la dueña.** Anular mueve plata
+y stock hacia atrás; que lo haga quien cobró anula el control.
+
+### Por qué el permiso se toca por RPC
+
+`memberships_update` es owner-only. Ampliarla a la encargada para que pueda
+tocar este flag también le permitiría editar su propio `role` y ponerse
+`owner` — escalada de privilegios. `set_cash_permission(tenant, user, can)`
+escribe una sola columna y nada más.
+
+### Por qué la caja de la cajera vive en `/o/caja`
+
+Las páginas bajo `/dashboard` (Clientes, Inventario, Servicios) no chequean
+rol por su cuenta: confían en el redirect general de
+`dashboard/layout.tsx:17`. Aflojar ese redirect para dejar entrar a la
+cajera obligaría a poner una guarda en cada página, y alcanza con olvidarse
+de una para filtrar datos.
+
+`/o` ya existe como área operativa, con su layout y su BottomNav. `/o/caja`
+monta el mismo `CajaScreen`, sin el panel de permisos y sin cobro de turnos
+por `?turno=`. `/dashboard/layout.tsx` no se toca.
+
+El permiso se prende y se saca desde el panel **"Quién puede cobrar"** en
+`/dashboard/caja`.
+
 ## Arqueo
 
 ```
@@ -282,6 +318,10 @@ los otros cuatro módulos.
    ser cobrable
 10. Confirmar sin caja abierta → rechazado
 11. Aislamiento cross-tenant
+12. La operadora cobra sólo con el permiso prendido
+13. La cajera con permiso igual no puede anular
+14. La cajera no puede autoasignarse el permiso ni editarse el rol
+15. La encargada puede prender y sacar el permiso
 
 ### E2E
 

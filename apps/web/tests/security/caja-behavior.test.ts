@@ -438,6 +438,144 @@ async function main() {
         console.error(`  FALLO — esperaba 42501, llegó: ${JSON.stringify(error)}`)
       }
     }
+    // --- Test 12 ---
+    console.log("Test 12: la cajera cobra sólo con el permiso prendido...")
+    {
+      const cashier = await createTestUser("cashier")
+      userIds.push(cashier.id)
+      await admin.from("memberships").insert({
+        tenant_id: tenantId,
+        user_id: cashier.id,
+        branch_id: branchId,
+        role: "operator",
+      })
+      const cashierClient = await signIn(cashier.email, cashier.password)
+
+      await ownerClient.rpc("open_cash_session", { p_branch_id: branchId, p_opening_amount: 0 })
+
+      // Sin el permiso: rechazada.
+      const { error: sinPermiso } = await cashierClient.rpc("confirm_sale", {
+        p_branch_id: branchId,
+        p_client_id: null,
+        p_appointment_id: null,
+        p_items: [{ item_id: productId, item_type: "product", quantity: 1, operator_id: null }],
+        p_payments: [{ method: "cash", amount: 5000 }],
+        p_discount: 0,
+      })
+
+      // La dueña se lo prende.
+      const { error: grantError } = await ownerClient.rpc("set_cash_permission", {
+        p_tenant_id: tenantId,
+        p_user_id: cashier.id,
+        p_can: true,
+      })
+
+      // Con el permiso: cobra.
+      const { data: venta, error: conPermiso } = await cashierClient.rpc("confirm_sale", {
+        p_branch_id: branchId,
+        p_client_id: null,
+        p_appointment_id: null,
+        p_items: [{ item_id: productId, item_type: "product", quantity: 1, operator_id: null }],
+        p_payments: [{ method: "cash", amount: 5000 }],
+        p_discount: 0,
+      })
+
+      if (sinPermiso?.code === "42501" && !grantError && !conPermiso && Number(venta?.[0]?.total) === 5000) {
+        console.log("  OK — sin permiso rechazada, con permiso cobró 5000")
+      } else {
+        failures++
+        console.error(
+          `  FALLO — sin=${JSON.stringify(sinPermiso)}, grant=${JSON.stringify(grantError)}, con=${JSON.stringify(conPermiso)}`,
+        )
+      }
+
+      // --- Test 13 ---
+      console.log("Test 13: la cajera igual no puede anular...")
+      {
+        const saleId = venta?.[0]?.sale_id
+        const { error } = await cashierClient.rpc("void_sale", {
+          p_sale_id: saleId,
+          p_reason: "quiero deshacerla",
+        })
+
+        if (error?.code === "42501") {
+          console.log("  OK — anular sigue siendo sólo de la dueña")
+        } else {
+          failures++
+          console.error(`  FALLO — esperaba 42501, llegó: ${JSON.stringify(error)}`)
+        }
+      }
+
+      // --- Test 14 ---
+      console.log("Test 14: la cajera no puede prenderse el permiso sola...")
+      {
+        const { error: selfGrant } = await cashierClient.rpc("set_cash_permission", {
+          p_tenant_id: tenantId,
+          p_user_id: cashier.id,
+          p_can: true,
+        })
+
+        // Y tampoco puede tocar su rol por la vía directa.
+        const { error: roleError } = await cashierClient
+          .from("memberships")
+          .update({ role: "owner" })
+          .eq("user_id", cashier.id)
+
+        const { data: check } = await admin
+          .from("memberships").select("role").eq("user_id", cashier.id).single()
+
+        if (selfGrant?.code === "42501" && check?.role === "operator") {
+          console.log("  OK — no puede autoasignarse permisos ni rol")
+        } else {
+          failures++
+          console.error(
+            `  FALLO — selfGrant=${JSON.stringify(selfGrant)}, role=${JSON.stringify(roleError)}, quedó=${check?.role}`,
+          )
+        }
+      }
+
+      // --- Test 15 ---
+      console.log("Test 15: la encargada también puede prender y sacar el permiso...")
+      {
+        const supervisor = await createTestUser("supervisor")
+        userIds.push(supervisor.id)
+        await admin.from("memberships").insert({
+          tenant_id: tenantId,
+          user_id: supervisor.id,
+          branch_id: branchId,
+          role: "supervisor",
+        })
+        const supervisorClient = await signIn(supervisor.email, supervisor.password)
+
+        const { error: offError } = await supervisorClient.rpc("set_cash_permission", {
+          p_tenant_id: tenantId,
+          p_user_id: cashier.id,
+          p_can: false,
+        })
+
+        const { data: after } = await admin
+          .from("memberships").select("can_operate_cash").eq("user_id", cashier.id).single()
+
+        // Y sacado el permiso, la cajera vuelve a no poder cobrar.
+        const { error: yaNo } = await cashierClient.rpc("confirm_sale", {
+          p_branch_id: branchId,
+          p_client_id: null,
+          p_appointment_id: null,
+          p_items: [{ item_id: productId, item_type: "product", quantity: 1, operator_id: null }],
+          p_payments: [{ method: "cash", amount: 5000 }],
+          p_discount: 0,
+        })
+
+        if (!offError && after?.can_operate_cash === false && yaNo?.code === "42501") {
+          console.log("  OK — la encargada se lo sacó y dejó de poder cobrar")
+        } else {
+          failures++
+          console.error(
+            `  FALLO — off=${JSON.stringify(offError)}, flag=${after?.can_operate_cash}, yaNo=${JSON.stringify(yaNo)}`,
+          )
+        }
+      }
+    }
   } catch (err) {
     failures++
     console.error("Error inesperado:", err instanceof Error ? err.message : err)

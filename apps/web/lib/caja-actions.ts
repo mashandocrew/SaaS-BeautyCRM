@@ -49,6 +49,8 @@ const RPC_MESSAGES: Record<string, string> = {
   NOT_ALLOWED_TO_VOID: "Solo el dueño puede anular una venta.",
   NOT_ALLOWED_TO_OPEN_SESSION: "No tenés permiso para abrir la caja.",
   NOT_ALLOWED_TO_CLOSE_SESSION: "No tenés permiso para cerrar la caja.",
+  NOT_ALLOWED_TO_SET_CASH_PERMISSION: "Solo la dueña o la encargada pueden cambiar quién cobra.",
+  MEMBERSHIP_NOT_FOUND: "Esa persona no trabaja en este salón.",
 }
 
 function rpcError(
@@ -148,6 +150,30 @@ export async function voidSale(saleId: string, reason: string): Promise<ActionRe
   const supabase = await createClient()
   const { error } = await supabase.rpc("void_sale", { p_sale_id: saleId, p_reason: reason.trim() })
   if (error) return rpcError(error, "No pudimos anular la venta.")
+
+  revalidateCaja()
+  return { ok: true, data: undefined }
+}
+
+/**
+ * Prende o saca el permiso de cobrar de una persona del equipo.
+ *
+ * Por RPC y no por un update directo a memberships: la policy de update es
+ * owner-only, y ampliarla a la encargada le permitiría también editar su
+ * propio `role` y ponerse owner. El RPC escribe una sola columna.
+ */
+export async function setCashPermission(
+  tenantId: string,
+  userId: string,
+  can: boolean,
+): Promise<ActionResult> {
+  const supabase = await createClient()
+  const { error } = await supabase.rpc("set_cash_permission", {
+    p_tenant_id: tenantId,
+    p_user_id: userId,
+    p_can: can,
+  })
+  if (error) return rpcError(error, "No pudimos cambiar el permiso.")
 
   revalidateCaja()
   return { ok: true, data: undefined }

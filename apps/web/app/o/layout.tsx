@@ -37,7 +37,7 @@ export default async function OperatorLayout({ children }: { children: ReactNode
       <main className="container" style={{ paddingBottom: 24 }}>
         {children}
       </main>
-      <BottomNav />
+      <BottomNav canOperateCash={membership.can_operate_cash || membership.role !== "operator"} />
     </div>
   )
 }
