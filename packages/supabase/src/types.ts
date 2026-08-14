@@ -494,6 +494,70 @@ export type Database = {
           },
         ]
       }
+      inventory_movements: {
+        Row: {
+          branch_id: string
+          created_at: string
+          created_by: string | null
+          delta: number
+          id: string
+          item_id: string
+          item_type: Database["public"]["Enums"]["inventory_item_type"]
+          note: string | null
+          reason: Database["public"]["Enums"]["inventory_movement_reason"]
+          resulting_stock: number
+          tenant_id: string
+        }
+        Insert: {
+          branch_id: string
+          created_at?: string
+          created_by?: string | null
+          delta: number
+          id?: string
+          item_id: string
+          item_type: Database["public"]["Enums"]["inventory_item_type"]
+          note?: string | null
+          reason: Database["public"]["Enums"]["inventory_movement_reason"]
+          resulting_stock: number
+          tenant_id: string
+        }
+        Update: {
+          branch_id?: string
+          created_at?: string
+          created_by?: string | null
+          delta?: number
+          id?: string
+          item_id?: string
+          item_type?: Database["public"]["Enums"]["inventory_item_type"]
+          note?: string | null
+          reason?: Database["public"]["Enums"]["inventory_movement_reason"]
+          resulting_stock?: number
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_movements_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_movements_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_movements_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       memberships: {
         Row: {
           branch_id: string | null
@@ -588,6 +652,7 @@ export type Database = {
       retail_products: {
         Row: {
           cost: number
+          deleted_at: string | null
           id: string
           name: string
           sale_price: number
@@ -595,6 +660,7 @@ export type Database = {
         }
         Insert: {
           cost?: number
+          deleted_at?: string | null
           id?: string
           name: string
           sale_price?: number
@@ -602,6 +668,7 @@ export type Database = {
         }
         Update: {
           cost?: number
+          deleted_at?: string | null
           id?: string
           name?: string
           sale_price?: number
@@ -828,6 +895,7 @@ export type Database = {
       supplies: {
         Row: {
           cost_per_unit: number
+          deleted_at: string | null
           id: string
           name: string
           tenant_id: string
@@ -835,6 +903,7 @@ export type Database = {
         }
         Insert: {
           cost_per_unit?: number
+          deleted_at?: string | null
           id?: string
           name: string
           tenant_id: string
@@ -842,6 +911,7 @@ export type Database = {
         }
         Update: {
           cost_per_unit?: number
+          deleted_at?: string | null
           id?: string
           name?: string
           tenant_id?: string
@@ -1036,8 +1106,44 @@ export type Database = {
           },
         ]
       }
+      v_inventory: {
+        Row: {
+          below_minimum: boolean | null
+          branch_id: string | null
+          branch_name: string | null
+          cost_per_unit: number | null
+          current_stock: number | null
+          item_id: string | null
+          item_type: Database["public"]["Enums"]["inventory_item_type"] | null
+          min_alert_level: number | null
+          name: string | null
+          sale_price: number | null
+          tenant_id: string | null
+          unit: Database["public"]["Enums"]["supply_unit"] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "branches_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
+      adjust_stock: {
+        Args: {
+          p_branch_id: string
+          p_delta: number
+          p_item_id: string
+          p_item_type: Database["public"]["Enums"]["inventory_item_type"]
+          p_note?: string | null
+          p_reason: Database["public"]["Enums"]["inventory_movement_reason"]
+        }
+        Returns: number
+      }
       book_appointment: {
         Args: {
           p_branch_id: string
@@ -1052,6 +1158,23 @@ export type Database = {
           ends_at: string
           starts_at: string
         }[]
+      }
+      record_stock_count: {
+        Args: {
+          p_branch_id: string
+          p_counted: number
+          p_item_id: string
+          p_item_type: Database["public"]["Enums"]["inventory_item_type"]
+          p_note?: string | null
+        }
+        Returns: number
+      }
+      soft_delete_inventory_item: {
+        Args: {
+          p_item_id: string
+          p_item_type: Database["public"]["Enums"]["inventory_item_type"]
+        }
+        Returns: undefined
       }
       soft_delete_service: {
         Args: {
@@ -1084,6 +1207,12 @@ export type Database = {
         | "no_show"
         | "cancelled"
       inventory_item_type: "supply" | "product"
+      inventory_movement_reason:
+        | "compra"
+        | "rotura"
+        | "recuento"
+        | "ajuste"
+        | "venta"
       membership_role: "owner" | "supervisor" | "operator"
       payment_method: "cash" | "card" | "transfer" | "mp" | "other"
       sale_item_type: "service" | "product"
@@ -1232,6 +1361,13 @@ export const Constants = {
         "cancelled",
       ],
       inventory_item_type: ["supply", "product"],
+      inventory_movement_reason: [
+        "compra",
+        "rotura",
+        "recuento",
+        "ajuste",
+        "venta",
+      ],
       membership_role: ["owner", "supervisor", "operator"],
       payment_method: ["cash", "card", "transfer", "mp", "other"],
       sale_item_type: ["service", "product"],
