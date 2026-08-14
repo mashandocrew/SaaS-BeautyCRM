@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Badge, Button, Sheet } from "@beautycrm/ui"
 import type { AgendaAppointment, AgendaStatus } from "@/lib/agenda-types"
@@ -66,6 +67,14 @@ export function AppointmentDetailPanel({
       </p>
 
       <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)", marginTop: "var(--space-4)" }}>
+        {/* Link y no un botón con router.push: es navegación, y un link se
+            puede abrir en otra pestaña o copiar. Sólo para turnos que ya
+            empezaron: cobrar algo que todavía no se prestó no tiene sentido. */}
+        {appointment.status === "in_progress" || appointment.status === "done" ? (
+          <Link className="btn btn-primary" href={`/dashboard/caja?turno=${appointmentId}`}>
+            Cobrar
+          </Link>
+        ) : null}
         {next ? (
           <Button disabled={loading !== null} onClick={() => changeStatus(next.status)}>
             {loading === next.status ? "Guardando..." : next.label}
