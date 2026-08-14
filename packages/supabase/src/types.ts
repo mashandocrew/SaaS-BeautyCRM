@@ -741,6 +741,9 @@ export type Database = {
           id: string
           tenant_id: string
           total: number
+          void_reason: string | null
+          voided_at: string | null
+          voided_by: string | null
         }
         Insert: {
           appointment_id?: string | null
@@ -753,6 +756,9 @@ export type Database = {
           id?: string
           tenant_id: string
           total?: number
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
         }
         Update: {
           appointment_id?: string | null
@@ -765,6 +771,9 @@ export type Database = {
           id?: string
           tenant_id?: string
           total?: number
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
         }
         Relationships: [
           {
@@ -1158,6 +1167,45 @@ export type Database = {
           ends_at: string
           starts_at: string
         }[]
+      }
+      close_cash_session: {
+        Args: {
+          p_counted_total: number
+          p_session_id: string
+        }
+        Returns: {
+          counted_total: number
+          difference: number
+          expected_total: number
+        }[]
+      }
+      confirm_sale: {
+        Args: {
+          p_appointment_id?: string | null
+          p_branch_id: string
+          p_client_id?: string | null
+          p_discount?: number
+          p_items: Json
+          p_payments: Json
+        }
+        Returns: {
+          sale_id: string
+          total: number
+        }[]
+      }
+      open_cash_session: {
+        Args: {
+          p_branch_id: string
+          p_opening_amount: number
+        }
+        Returns: string
+      }
+      void_sale: {
+        Args: {
+          p_reason: string
+          p_sale_id: string
+        }
+        Returns: undefined
       }
       record_stock_count: {
         Args: {
