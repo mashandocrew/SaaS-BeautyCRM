@@ -28,7 +28,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard/agenda", label: "Agenda", icon: CalendarBlank, implemented: true },
   { href: "/dashboard/clientes", label: "Clientes", icon: Users, implemented: true },
   { href: "/dashboard/servicios", label: "Servicios", icon: Scissors, implemented: true },
-  { href: "/dashboard/inventario", label: "Inventario", icon: Package, implemented: false },
+  { href: "/dashboard/inventario", label: "Inventario", icon: Package, implemented: true },
   { href: "/dashboard/caja", label: "Caja / POS", icon: Receipt, implemented: false },
   { href: "/dashboard/comisiones", label: "Comisiones", icon: Wallet, implemented: false },
   { href: "/dashboard/reportes", label: "Reportes", icon: ChartBar, implemented: false },
