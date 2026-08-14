@@ -28,9 +28,10 @@ export type AppointmentRow = {
 export type StockAlertRow = {
   item_id: string
   item_type: string
+  name: string
+  branch_name: string
   current_stock: number
   min_alert_level: number
-  branches: { tenant_id: string; name: string } | null
 }
 
 type SaleTotalRow = { total: number }
@@ -70,9 +71,16 @@ export async function getDashboardData(tenantId: string) {
         .gte("created_at", monthStart)
         .returns<SaleTotalRow[]>(),
 
+      // Contra v_inventory y no contra inventory: la vista filtra los ítems
+      // eliminados (deleted_at) y ya trae below_minimum calculado con el
+      // mismo criterio que usa el módulo Inventario. Leer inventory directo
+      // mostraba acá ítems ya eliminados —cuya fila de inventory sobrevive
+      // al borrado suave— y marcaba como bajo todo ítem con mínimo 0.
       supabase
-        .from("inventory")
-        .select("item_id, item_type, current_stock, min_alert_level, branches:branch_id(tenant_id, name)")
+        .from("v_inventory")
+        .select("item_id, item_type, name, branch_name, current_stock, min_alert_level")
+        .eq("tenant_id", tenantId)
+        .eq("below_minimum", true)
         .order("current_stock", { ascending: true })
         .returns<StockAlertRow[]>(),
 
@@ -97,15 +105,15 @@ export async function getDashboardData(tenantId: string) {
     0
   )
 
-  // inventory no tiene tenant_id directo (vive en branches) — la policy de
-  // RLS ya filtra por tenant vía la FK a branches, así que lo que llega acá
-  // ya es sólo del tenant actual. El filtro <= min_alert_level se resuelve
-  // client-side abajo comparando ambas columnas (Postgrest no compara dos
-  // columnas entre sí en un solo .lte()).
-  const stockAlerts = (lowStock.data ?? []).filter(
-    (item: StockAlertRow) =>
-      item.branches?.tenant_id === tenantId && item.current_stock <= item.min_alert_level
-  )
+  // Sin filtro client-side: below_minimum ya resuelve en la vista la
+  // comparación entre dos columnas que Postgrest no puede expresar.
+  // numeric de Postgres puede llegar como string — mismo Number()
+  // defensivo que hace getInventory (lib/inventory-queries.ts).
+  const stockAlerts = (lowStock.data ?? []).map((item: StockAlertRow) => ({
+    ...item,
+    current_stock: Number(item.current_stock),
+    min_alert_level: Number(item.min_alert_level),
+  }))
 
   return {
     todayAppointments: todayAppointments.data ?? [],

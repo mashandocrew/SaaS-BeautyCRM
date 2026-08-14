@@ -96,6 +96,7 @@ export default async function DashboardPage() {
           <table>
             <thead>
               <tr>
+                <th>Ítem</th>
                 <th>Sucursal</th>
                 <th>Tipo</th>
                 <th>Stock actual</th>
@@ -103,9 +104,10 @@ export default async function DashboardPage() {
               </tr>
             </thead>
             <tbody>
-              {data.stockAlerts.map((item: StockAlertRow, i: number) => (
-                <tr key={i}>
-                  <td>{item.branches?.name ?? "—"}</td>
+              {data.stockAlerts.map((item: StockAlertRow) => (
+                <tr key={`${item.branch_name}-${item.item_type}-${item.item_id}`}>
+                  <td>{item.name}</td>
+                  <td>{item.branch_name}</td>
                   <td>{item.item_type === "supply" ? "Insumo" : "Producto"}</td>
                   <td>
                     <Badge tone="danger">{item.current_stock}</Badge>
