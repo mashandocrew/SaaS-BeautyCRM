@@ -39,10 +39,22 @@ recibe `unit_price`.** Lo lee de `services.price` o `retail_products.sale_price`
 y lo congela en `sale_items.unit_price`.
 
 Si el precio viajara desde el browser, cualquiera con la sesión abierta cobra un
-servicio a $0. La UI igual muestra el precio de catálogo mientras se arma el
-carrito —hay que ver qué se está cobrando—, pero es informativo: si el catálogo
-cambió entre que se armó el carrito y se confirmó, gana el catálogo, y la UI
-muestra el total que devolvió el servidor.
+servicio a $0. La UI igual muestra el precio mientras se arma el carrito —hay que
+ver qué se está cobrando—, pero es informativo: el que vale es el que resuelve el
+RPC, y la UI muestra el total que devolvió el servidor.
+
+**De dónde sale el precio, en orden:**
+
+1. **Si el ítem viene de un turno**, del `price_snapshot` de
+   `appointment_services`. Es el precio que se le cotizó al cliente al agendar, y
+   cobrarle otra cosa porque el catálogo cambió en el medio sería cobrarle
+   distinto de lo que se le dijo.
+2. **Si no**, del catálogo: `services.price` o `retail_products.sale_price`.
+
+En venta de mostrador sólo se pueden cargar servicios con `is_active = true` y
+productos con `deleted_at is null`. Los ítems que vienen de un turno no pasan por
+ese filtro: se agendaron cuando el servicio estaba activo, y desactivarlo después
+no puede dejar un turno sin poder cobrarse.
 
 ### Atomicidad
 
@@ -257,7 +269,9 @@ los otros cuatro módulos.
 
 1. La operadora no puede confirmar ni anular una venta
 2. Nadie escribe `sales` / `sale_items` / `payments` directo — sólo los RPC
-3. El precio sale del catálogo: un `unit_price` inventado no cambia lo cobrado
+3. El precio lo pone el servidor: un `unit_price` inventado no cambia lo cobrado,
+   y un ítem que viene de un turno se cobra al `price_snapshot` cotizado, no al
+   precio de catálogo actual
 4. Pagos que no suman el total → rechazado, sin venta a medio escribir
 5. Vender descuenta stock **y** deja movimiento `'venta'` en el historial
 6. Anular devuelve el stock, revierte la comisión con asiento negativo, y no
