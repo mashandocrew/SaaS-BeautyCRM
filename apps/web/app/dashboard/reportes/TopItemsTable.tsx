@@ -1,5 +1,5 @@
 import { Card, EmptyState } from "@beautycrm/ui"
-import { ChartBar } from "@phosphor-icons/react"
+import { ChartBar } from "@phosphor-icons/react/dist/ssr"
 import type { TopItem } from "@/lib/reportes-types"
 
 function formatMoney(n: number): string {
