@@ -15,7 +15,8 @@
     "test:inventario": "tsx --env-file=.env.local tests/security/inventario-behavior.test.ts",
     "test:caja": "tsx --env-file=.env.local tests/security/caja-behavior.test.ts",
     "test:comisiones": "tsx --env-file=.env.local tests/security/comisiones-behavior.test.ts",
-    "test:reportes": "tsx --env-file=.env.local tests/security/reportes-behavior.test.ts"
+    "test:reportes": "tsx --env-file=.env.local tests/security/reportes-behavior.test.ts",
+    "test:sucursales": "tsx --env-file=.env.local tests/security/sucursales-behavior.test.ts"
   },
   "dependencies": {
     "@beautycrm/supabase": "workspace:*",
