@@ -343,13 +343,13 @@ Abrir caja → cobrar un turno desde la agenda → venta de mostrador con pago m
 - `sales_select` (de `0001`) queda sin restringir: cualquier miembro del tenant
   lee todas las ventas, no sólo las suyas. Aceptado a propósito — lo resuelve
   el alcance por rol del módulo Reportes.
-- Hay una migración sin commitear (`0015_costs_and_bom.sql`, en
-  `.worktrees/caja-module`) de una iniciativa aparte (ocultar costos de
-  insumos/productos + BOM de servicios) que **ya está parcialmente aplicada
-  a la base remota**: el `revoke select on supplies/retail_products` corrió,
-  pero el resto de la migración (vista `v_inventory` sin costo, RPC
-  `inventory_costs`, `set_service_bom`) no. Eso rompe hoy
-  `test:inventario` (Test 2: la supervisora no puede crear un insumo,
-  `permission denied for table supplies`). Hay que terminar y commitear esa
-  migración — o revertir el `revoke` — antes de dar Inventario por sano de
-  nuevo.
+- ~~Migración `0015` sin commitear...~~ **Resuelto el mismo día:** la migración
+  ya estaba completa y aplicada en la base remota (`inventory_costs`,
+  `set_service_bom`, grants por columna, vista `v_inventory` sin costo) —
+  el problema era sólo que el archivo y el código de la app (capa de datos
+  de inventario/servicios, tests) nunca se habían commiteado. Se commiteó y
+  mergeó a `main`. `test:inventario`, `test:caja`, `tsc --noEmit` y el E2E de
+  Inventario quedaron verdes. **Sigue pendiente la UI** para editar el BOM
+  de un servicio (`setServiceBom`/`getServiceBoms`/`getSupplyOptions` no
+  tienen componente que los use todavía) — no bloquea nada, es la próxima
+  vez que se toque Servicios o Inventario.
