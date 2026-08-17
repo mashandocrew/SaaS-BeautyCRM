@@ -32,7 +32,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard/caja", label: "Caja / POS", icon: Receipt, implemented: true },
   { href: "/dashboard/comisiones", label: "Comisiones", icon: Wallet, implemented: true },
   { href: "/dashboard/reportes", label: "Reportes", icon: ChartBar, implemented: true },
-  { href: "/dashboard/sucursales", label: "Sucursales", icon: Buildings, implemented: false },
+  { href: "/dashboard/sucursales", label: "Sucursales", icon: Buildings, implemented: true },
   { href: "/dashboard/configuracion", label: "Configuración", icon: Gear, implemented: false },
 ]
 
