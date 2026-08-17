@@ -1244,6 +1244,13 @@ export type Database = {
         }
         Returns: undefined
       }
+      settle_commission_period: {
+        Args: {
+          p_period: string
+          p_tenant_id: string
+        }
+        Returns: number
+      }
       soft_delete_inventory_item: {
         Args: {
           p_item_id: string
