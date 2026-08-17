@@ -561,6 +561,7 @@ export type Database = {
       memberships: {
         Row: {
           branch_id: string | null
+          can_operate_cash: boolean
           commission_rule_id: string | null
           created_at: string
           google_calendar_token: Json | null
@@ -571,6 +572,7 @@ export type Database = {
         }
         Insert: {
           branch_id?: string | null
+          can_operate_cash?: boolean
           commission_rule_id?: string | null
           created_at?: string
           google_calendar_token?: Json | null
@@ -581,6 +583,7 @@ export type Database = {
         }
         Update: {
           branch_id?: string | null
+          can_operate_cash?: boolean
           commission_rule_id?: string | null
           created_at?: string
           google_calendar_token?: Json | null
@@ -741,6 +744,9 @@ export type Database = {
           id: string
           tenant_id: string
           total: number
+          void_reason: string | null
+          voided_at: string | null
+          voided_by: string | null
         }
         Insert: {
           appointment_id?: string | null
@@ -753,6 +759,9 @@ export type Database = {
           id?: string
           tenant_id: string
           total?: number
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
         }
         Update: {
           appointment_id?: string | null
@@ -765,6 +774,9 @@ export type Database = {
           id?: string
           tenant_id?: string
           total?: number
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
         }
         Relationships: [
           {
@@ -1159,6 +1171,45 @@ export type Database = {
           starts_at: string
         }[]
       }
+      close_cash_session: {
+        Args: {
+          p_counted_total: number
+          p_session_id: string
+        }
+        Returns: {
+          counted_total: number
+          difference: number
+          expected_total: number
+        }[]
+      }
+      confirm_sale: {
+        Args: {
+          p_appointment_id?: string | null
+          p_branch_id: string
+          p_client_id?: string | null
+          p_discount?: number
+          p_items: Json
+          p_payments: Json
+        }
+        Returns: {
+          sale_id: string
+          total: number
+        }[]
+      }
+      open_cash_session: {
+        Args: {
+          p_branch_id: string
+          p_opening_amount: number
+        }
+        Returns: string
+      }
+      void_sale: {
+        Args: {
+          p_reason: string
+          p_sale_id: string
+        }
+        Returns: undefined
+      }
       record_stock_count: {
         Args: {
           p_branch_id: string
@@ -1168,6 +1219,14 @@ export type Database = {
           p_note?: string | null
         }
         Returns: number
+      }
+      set_cash_permission: {
+        Args: {
+          p_can: boolean
+          p_tenant_id: string
+          p_user_id: string
+        }
+        Returns: undefined
       }
       soft_delete_inventory_item: {
         Args: {
