@@ -17,6 +17,7 @@
     "test:inventario": "pnpm --filter @beautycrm/web test:inventario",
     "test:caja": "pnpm --filter @beautycrm/web test:caja",
     "test:comisiones": "pnpm --filter @beautycrm/web test:comisiones",
+    "test:reportes": "pnpm --filter @beautycrm/web test:reportes",
     "types:generate": "supabase gen types typescript --project-id xhbrhpfzehshiyjzlxnx --schema public > packages/supabase/src/types.ts"
   }
 }
