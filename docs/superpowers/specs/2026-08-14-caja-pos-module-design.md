@@ -337,3 +337,19 @@ Abrir caja → cobrar un turno desde la agenda → venta de mostrador con pago m
 - Transferencias de caja entre sucursales
 - Integración de cobro con Mercado Pago: `payments.method = 'mp'` registra que se
   cobró por MP, no lo procesa
+
+## Deuda técnica conocida (post-merge, 2026-08-17)
+
+- `sales_select` (de `0001`) queda sin restringir: cualquier miembro del tenant
+  lee todas las ventas, no sólo las suyas. Aceptado a propósito — lo resuelve
+  el alcance por rol del módulo Reportes.
+- Hay una migración sin commitear (`0015_costs_and_bom.sql`, en
+  `.worktrees/caja-module`) de una iniciativa aparte (ocultar costos de
+  insumos/productos + BOM de servicios) que **ya está parcialmente aplicada
+  a la base remota**: el `revoke select on supplies/retail_products` corrió,
+  pero el resto de la migración (vista `v_inventory` sin costo, RPC
+  `inventory_costs`, `set_service_bom`) no. Eso rompe hoy
+  `test:inventario` (Test 2: la supervisora no puede crear un insumo,
+  `permission denied for table supplies`). Hay que terminar y commitear esa
+  migración — o revertir el `revoke` — antes de dar Inventario por sano de
+  nuevo.
