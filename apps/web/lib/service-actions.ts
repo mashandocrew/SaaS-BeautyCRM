@@ -2,7 +2,7 @@
 
 import { createClient } from "@beautycrm/supabase/server"
 import { revalidatePath } from "next/cache"
-import type { ServiceInput, ServiceRecord } from "./service-types"
+import type { BomLine, ServiceInput, ServiceRecord } from "./service-types"
 
 // Declarado local en vez de importado de client-actions.ts: cada módulo
 // declara el suyo (agenda-actions.ts y client-actions.ts hacen lo mismo),
@@ -146,5 +146,43 @@ export async function deleteService(serviceId: string): Promise<ActionResult> {
 
   revalidatePath("/dashboard/servicios")
   revalidatePath("/dashboard/agenda")
+  return { ok: true, data: undefined }
+}
+
+/**
+ * Reemplaza el BOM completo de un servicio: qué insumos consume y cuánto.
+ *
+ * Va por RPC porque es un reemplazo (borrar las líneas viejas, insertar las
+ * nuevas) y tiene que ser atómico: una falla en el medio dejaría el servicio
+ * consumiendo insumos equivocados, y eso descuenta stock mal en CADA venta
+ * posterior, en silencio. Ver migrations/0015.
+ */
+export async function setServiceBom(serviceId: string, lines: BomLine[]): Promise<ActionResult> {
+  for (const l of lines) {
+    if (!Number.isFinite(l.quantity_consumed) || l.quantity_consumed <= 0) {
+      return { ok: false, error: "La cantidad de cada insumo tiene que ser mayor a 0." }
+    }
+  }
+
+  const supabase = await createClient()
+  const { error } = await supabase.rpc("set_service_bom", {
+    p_service_id: serviceId,
+    p_lines: lines,
+  })
+  if (error) {
+    if (error.message.includes("INVALID_BOM_QUANTITY")) {
+      return { ok: false, error: "La cantidad de cada insumo tiene que ser mayor a 0.", code: error.code }
+    }
+    if (error.message.includes("SUPPLY_NOT_FOUND")) {
+      return { ok: false, error: "Alguno de los insumos ya no existe.", code: error.code }
+    }
+    if (error.code === "42501") {
+      return { ok: false, error: "No tenés permiso para cambiar los insumos de un servicio.", code: error.code }
+    }
+    return { ok: false, error: "No pudimos guardar los insumos del servicio.", code: error.code }
+  }
+
+  revalidatePath("/dashboard/servicios")
+  revalidatePath("/dashboard/inventario")
   return { ok: true, data: undefined }
 }

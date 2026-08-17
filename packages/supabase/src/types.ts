@@ -1123,7 +1123,6 @@ export type Database = {
           below_minimum: boolean | null
           branch_id: string | null
           branch_name: string | null
-          cost_per_unit: number | null
           current_stock: number | null
           item_id: string | null
           item_type: Database["public"]["Enums"]["inventory_item_type"] | null
@@ -1196,6 +1195,16 @@ export type Database = {
           total: number
         }[]
       }
+      inventory_costs: {
+        Args: {
+          p_tenant_id: string
+        }
+        Returns: {
+          cost: number
+          item_id: string
+          item_type: Database["public"]["Enums"]["inventory_item_type"]
+        }[]
+      }
       open_cash_session: {
         Args: {
           p_branch_id: string
@@ -1225,6 +1234,13 @@ export type Database = {
           p_can: boolean
           p_tenant_id: string
           p_user_id: string
+        }
+        Returns: undefined
+      }
+      set_service_bom: {
+        Args: {
+          p_lines: Json
+          p_service_id: string
         }
         Returns: undefined
       }

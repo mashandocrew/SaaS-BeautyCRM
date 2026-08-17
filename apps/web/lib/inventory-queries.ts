@@ -17,16 +17,25 @@ import type { InventoryItem, InventoryItemType, InventoryMovement } from "./inve
  */
 export async function getInventory(tenantId: string): Promise<InventoryItem[]> {
   const supabase = await createClient()
-  const { data } = await supabase
-    .from("v_inventory")
-    .select("*")
-    .eq("tenant_id", tenantId)
-    .order("item_type")
-    .order("name")
 
-  return (data ?? []).map((row) => ({
+  // El costo ya no viene en la vista: desde 0015 las columnas cost_per_unit
+  // y cost están revocadas a nivel de GRANT, así que llegan sólo por
+  // inventory_costs, que chequea que sea dueña o encargada.
+  //
+  // Las dos consultas van en paralelo: la de costos falla con 42501 para una
+  // operadora, y en ese caso el inventario se devuelve sin costos en vez de
+  // romper la página.
+  const [inventory, costs] = await Promise.all([
+    supabase.from("v_inventory").select("*").eq("tenant_id", tenantId).order("item_type").order("name"),
+    supabase.rpc("inventory_costs", { p_tenant_id: tenantId }),
+  ])
+
+  const costByItem = new Map<string, number>()
+  for (const c of costs.data ?? []) costByItem.set(c.item_id, Number(c.cost))
+
+  return (inventory.data ?? []).map((row) => ({
     ...row,
-    cost_per_unit: row.cost_per_unit === null ? null : Number(row.cost_per_unit),
+    cost_per_unit: row.item_id === null ? null : (costByItem.get(row.item_id) ?? null),
     sale_price: row.sale_price === null ? null : Number(row.sale_price),
     current_stock: Number(row.current_stock),
     min_alert_level: Number(row.min_alert_level),
