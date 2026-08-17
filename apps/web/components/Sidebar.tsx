@@ -30,7 +30,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard/servicios", label: "Servicios", icon: Scissors, implemented: true },
   { href: "/dashboard/inventario", label: "Inventario", icon: Package, implemented: true },
   { href: "/dashboard/caja", label: "Caja / POS", icon: Receipt, implemented: true },
-  { href: "/dashboard/comisiones", label: "Comisiones", icon: Wallet, implemented: false },
+  { href: "/dashboard/comisiones", label: "Comisiones", icon: Wallet, implemented: true },
   { href: "/dashboard/reportes", label: "Reportes", icon: ChartBar, implemented: false },
   { href: "/dashboard/sucursales", label: "Sucursales", icon: Buildings, implemented: false },
   { href: "/dashboard/configuracion", label: "Configuración", icon: Gear, implemented: false },
