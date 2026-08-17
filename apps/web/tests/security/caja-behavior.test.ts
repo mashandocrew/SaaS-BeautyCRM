@@ -576,6 +576,77 @@ async function main() {
         }
       }
     }
+    // --- Test 16 ---
+    console.log("Test 16: vender un servicio descuenta sus insumos según el BOM...")
+    {
+      // Éste es el que cierra el círculo del inventario: cargás stock una vez
+      // y se descuenta solo con cada servicio prestado, no sólo con la
+      // reventa.
+      const { data: insumo } = await ownerClient
+        .from("supplies")
+        .insert({ tenant_id: tenantId, name: "Esmalte BOM Test", unit: "ml", cost_per_unit: 50 })
+        .select("id")
+        .single()
+
+      const { data: servicio } = await ownerClient
+        .from("services")
+        .insert({ tenant_id: tenantId, name: "Semi BOM Test", price: 9000, duration_minutes: 60 })
+        .select("id")
+        .single()
+
+      await ownerClient.rpc("adjust_stock", {
+        p_branch_id: branchId, p_item_id: insumo!.id, p_item_type: "supply",
+        p_delta: 100, p_reason: "compra", p_note: null,
+      })
+
+      // El BOM: cada servicio consume 8 ml.
+      const { error: bomError } = await ownerClient.rpc("set_service_bom", {
+        p_service_id: servicio!.id,
+        p_lines: [{ supply_id: insumo!.id, quantity_consumed: 8 }],
+      })
+
+      // Guardarlo de nuevo tiene que REEMPLAZAR, no acumular.
+      await ownerClient.rpc("set_service_bom", {
+        p_service_id: servicio!.id,
+        p_lines: [{ supply_id: insumo!.id, quantity_consumed: 5 }],
+      })
+
+      const { data: bomFinal } = await admin
+        .from("service_supplies").select("quantity_consumed").eq("service_id", servicio!.id)
+
+      await ownerClient.rpc("open_cash_session", { p_branch_id: branchId, p_opening_amount: 0 })
+
+      // Vender 2 servicios: 2 × 5 ml = 10 ml. Stock 100 → 90.
+      const { error: ventaError } = await ownerClient.rpc("confirm_sale", {
+        p_branch_id: branchId,
+        p_client_id: null,
+        p_appointment_id: null,
+        p_items: [{ item_id: servicio!.id, item_type: "service", quantity: 2, operator_id: null }],
+        p_payments: [{ method: "cash", amount: 18000 }],
+        p_discount: 0,
+      })
+
+      const { data: stock } = await admin
+        .from("inventory").select("current_stock")
+        .eq("branch_id", branchId).eq("item_id", insumo!.id).eq("item_type", "supply").single()
+
+      const { data: movs } = await admin
+        .from("inventory_movements").select("delta, reason")
+        .eq("item_id", insumo!.id).eq("reason", "venta")
+
+      const reemplazoOk = bomFinal?.length === 1 && Number(bomFinal[0].quantity_consumed) === 5
+      const stockOk = Number(stock?.current_stock) === 90
+      const movOk = movs?.length === 1 && Number(movs[0].delta) === -10
+
+      if (!bomError && !ventaError && reemplazoOk && stockOk && movOk) {
+        console.log("  OK — BOM reemplazado, 2 servicios × 5 ml → stock 100 → 90 con movimiento")
+      } else {
+        failures++
+        console.error(
+          `  FALLO — bom=${JSON.stringify(bomFinal)}, stock=${stock?.current_stock} (esperaba 90), movs=${JSON.stringify(movs)}`,
+        )
+      }
+    }
   } catch (err) {
     failures++
     console.error("Error inesperado:", err instanceof Error ? err.message : err)

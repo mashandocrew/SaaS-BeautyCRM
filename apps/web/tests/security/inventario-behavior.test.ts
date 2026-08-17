@@ -97,23 +97,36 @@ async function main() {
     const { data: supSupply, error: supSupplyError } = await supervisorClient
       .from("supplies")
       .insert({ tenant_id: tenantId, name: "Esmalte de supervisora", unit: "ml", cost_per_unit: 500 })
-      .select()
+      .select("id")
       .single()
     if (supSupplyError || !supSupply) {
       console.error("  FALLO — la supervisora no pudo crear un insumo:", supSupplyError?.message)
       failures++
     } else {
+      // Desde 0015 el costo no se puede releer por la tabla: los grants de
+      // columna son por rol de base de datos, y dueña, encargada y operadora
+      // comparten `authenticated`. Escribirlo sí se puede (revocamos select,
+      // no update); leerlo va por inventory_costs, que chequea el rol.
       const { data: supUpdate, error: supUpdateError } = await supervisorClient
         .from("supplies")
         .update({ cost_per_unit: 600 })
         .eq("id", supSupply.id)
-        .select("cost_per_unit")
+        .select("id")
         .maybeSingle()
-      if (supUpdateError || Number(supUpdate?.cost_per_unit) !== 600) {
-        console.error("  FALLO — la supervisora no pudo editar el insumo:", supUpdateError?.message)
+
+      const { data: costs } = await supervisorClient.rpc("inventory_costs", {
+        p_tenant_id: tenantId,
+      })
+      const elCosto = (costs ?? []).find((c: { item_id: string }) => c.item_id === supSupply.id)
+
+      if (supUpdateError || !supUpdate || Number(elCosto?.cost) !== 600) {
+        console.error(
+          "  FALLO — la supervisora no pudo editar el insumo:",
+          supUpdateError?.message ?? `costo leído: ${elCosto?.cost}`,
+        )
         failures++
       } else {
-        console.log("  OK — creó y editó")
+        console.log("  OK — creó, editó, y releyó el costo por la vía autorizada")
       }
     }
 
@@ -121,7 +134,7 @@ async function main() {
     const { data: supply, error: supplyError } = await ownerClient
       .from("supplies")
       .insert({ tenant_id: tenantId, name: "Esmalte rojo", unit: "ml", cost_per_unit: 800 })
-      .select()
+      .select("id")
       .single()
     if (supplyError || !supply) throw new Error(`No pude crear el insumo base: ${supplyError?.message}`)
 
@@ -308,7 +321,7 @@ async function main() {
     const { data: supplyA } = await ownerClient
       .from("supplies")
       .insert({ tenant_id: tenantId, name: "Insumo del tenant A", unit: "unit", cost_per_unit: 1 })
-      .select()
+      .select("id")
       .single()
 
     const { error: crossAdjustError } = await ownerBClient.rpc("adjust_stock", {
@@ -329,6 +342,59 @@ async function main() {
       failures++
     } else {
       console.log("  OK — ajuste rechazado y sin filtración de lectura")
+    }
+
+    // --- Test 9: el costo no se lee sin permiso ---
+    console.log("Test 9: la operadora no puede leer el costo, ni por la tabla ni por la vista...")
+    {
+      // Lo que se está cerrando: hoy supplies_select y retail_products_select
+      // son de todo el tenant, así que una operadora con su sesión podía
+      // pedir GET /rest/v1/supplies?select=cost_per_unit y le llegaba.
+      const { data: viaTabla, error: tablaError } = await operatorClient
+        .from("supplies")
+        .select("cost_per_unit")
+        .limit(1)
+
+      const { data: viaVista, error: vistaError } = await operatorClient
+        .from("v_inventory")
+        .select("cost_per_unit")
+        .limit(1)
+
+      const tablaBloqueada = !!tablaError || (viaTabla ?? []).length === 0
+      const vistaBloqueada = !!vistaError
+
+      if (tablaBloqueada && vistaBloqueada) {
+        console.log("  OK — el costo no llega por ninguno de los dos caminos")
+      } else {
+        failures++
+        console.error(
+          `  FALLO — tabla=${JSON.stringify(viaTabla ?? tablaError)}, vista=${JSON.stringify(viaVista ?? vistaError)}`,
+        )
+      }
+    }
+
+    // --- Test 10: quién sí obtiene el costo ---
+    console.log("Test 10: dueña y encargada obtienen el costo; la operadora es rechazada...")
+    {
+      const { data: comoDuena, error: duenaError } = await ownerClient.rpc("inventory_costs", {
+        p_tenant_id: tenantId,
+      })
+      const { error: comoEncargada } = await supervisorClient.rpc("inventory_costs", {
+        p_tenant_id: tenantId,
+      })
+      const { error: comoOperadora } = await operatorClient.rpc("inventory_costs", {
+        p_tenant_id: tenantId,
+      })
+
+      const duenaOk = !duenaError && (comoDuena ?? []).length > 0
+      if (duenaOk && !comoEncargada && comoOperadora?.code === "42501") {
+        console.log("  OK — dueña y encargada sí, operadora rechazada con 42501")
+      } else {
+        failures++
+        console.error(
+          `  FALLO — dueña=${JSON.stringify(duenaError ?? (comoDuena ?? []).length)}, encargada=${JSON.stringify(comoEncargada)}, operadora=${JSON.stringify(comoOperadora)}`,
+        )
+      }
     }
   } finally {
     console.log("Limpiando datos de prueba...")
