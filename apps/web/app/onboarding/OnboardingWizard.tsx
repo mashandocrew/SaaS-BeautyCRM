@@ -8,9 +8,9 @@ import {
   provisionTenant,
   updateTenantSettings,
   saveServices,
-  inviteOperator,
   createFirstAppointment,
 } from "./actions"
+import { inviteOperator } from "@/lib/team-actions"
 import { RUBROS, SERVICE_TEMPLATES, type Rubro, type ServiceTemplate } from "./templates"
 import { createClient } from "@beautycrm/supabase/client"
 

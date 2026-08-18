@@ -1,7 +1,11 @@
 import { redirect } from "next/navigation"
 import { getCurrentMembership } from "@/lib/session"
+import { getTenantBranches } from "@/lib/agenda-queries"
+import { getCommissionRules } from "@/lib/comisiones-queries"
+import { getTeamMembers } from "@/lib/team-queries"
 import { BusinessInfoForm } from "./BusinessInfoForm"
 import { SubscriptionCard } from "./SubscriptionCard"
+import { TeamPanel } from "./TeamPanel"
 
 export default async function ConfiguracionPage() {
   const { user, membership } = await getCurrentMembership()
@@ -13,6 +17,12 @@ export default async function ConfiguracionPage() {
 
   const settings = (membership.tenants.settings ?? {}) as Record<string, unknown>
 
+  const [team, branches, rules] = await Promise.all([
+    getTeamMembers(membership.tenant_id),
+    getTenantBranches(membership.tenant_id),
+    getCommissionRules(membership.tenant_id),
+  ])
+
   return (
     <div>
       <h1>Configuración</h1>
@@ -23,6 +33,12 @@ export default async function ConfiguracionPage() {
         timezone={typeof settings.timezone === "string" ? settings.timezone : "America/Argentina/Buenos_Aires"}
       />
       <SubscriptionCard status={membership.tenants.subscription_status} promoEndsAt={membership.tenants.promo_ends_at} />
+      <TeamPanel
+        tenantId={membership.tenant_id}
+        members={team}
+        branches={branches}
+        rules={rules}
+      />
     </div>
   )
 }
