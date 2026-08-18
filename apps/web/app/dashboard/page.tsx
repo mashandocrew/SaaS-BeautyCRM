@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation"
 import { CalendarBlank, CheckCircle } from "@phosphor-icons/react/dist/ssr"
+import { DismissibleBanner } from "@/components/DismissibleBanner"
+import { getDismissedBanners } from "@/lib/banner-actions"
 import { getCurrentMembership } from "@/lib/session"
 import { getDashboardData, type AppointmentRow, type StockAlertRow } from "./queries"
 import { StatTile, Badge, EmptyState } from "@beautycrm/ui"
@@ -22,20 +24,27 @@ function formatTime(iso: string) {
 }
 
 export default async function DashboardPage() {
-  const { membership } = await getCurrentMembership()
+  const { user, membership } = await getCurrentMembership()
   if (!membership) redirect("/onboarding")
 
-  const data = await getDashboardData(membership.tenant_id)
+  const [data, dismissedBanners] = await Promise.all([
+    getDashboardData(membership.tenant_id),
+    user ? getDismissedBanners(user.id) : Promise.resolve([]),
+  ])
 
   return (
     <div>
       <h1>Hola, {membership.tenants.business_name}</h1>
 
-      {membership.tenants.subscription_status === "promo" && membership.tenants.promo_ends_at ? (
-        <p className="promo-banner">
-          Precio promocional $40/mes hasta el{" "}
-          {new Date(membership.tenants.promo_ends_at).toLocaleDateString("es-AR")}, luego $100/mes.
-        </p>
+      {membership.tenants.subscription_status === "promo" &&
+      membership.tenants.promo_ends_at &&
+      !dismissedBanners.includes("promo_pricing") ? (
+        <DismissibleBanner bannerKey="promo_pricing">
+          <p className="promo-banner">
+            Precio promocional $40/mes hasta el{" "}
+            {new Date(membership.tenants.promo_ends_at).toLocaleDateString("es-AR")}, luego $100/mes.
+          </p>
+        </DismissibleBanner>
       ) : null}
 
       <div className="stat-grid">

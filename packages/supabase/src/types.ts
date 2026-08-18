@@ -828,6 +828,13 @@ export type Database = {
             referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "sales_voided_by_fkey"
+            columns: ["voided_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
         ]
       }
       service_supplies: {
@@ -976,6 +983,7 @@ export type Database = {
         Row: {
           avatar_url: string | null
           created_at: string
+          dismissed_banners: string[]
           email: string | null
           full_name: string | null
           id: string
@@ -984,6 +992,7 @@ export type Database = {
         Insert: {
           avatar_url?: string | null
           created_at?: string
+          dismissed_banners?: string[]
           email?: string | null
           full_name?: string | null
           id: string
@@ -992,6 +1001,7 @@ export type Database = {
         Update: {
           avatar_url?: string | null
           created_at?: string
+          dismissed_banners?: string[]
           email?: string | null
           full_name?: string | null
           id?: string
@@ -1132,15 +1142,7 @@ export type Database = {
           tenant_id: string | null
           unit: Database["public"]["Enums"]["supply_unit"] | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "branches_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
     }
     Functions: {
@@ -1171,10 +1173,7 @@ export type Database = {
         }[]
       }
       close_cash_session: {
-        Args: {
-          p_counted_total: number
-          p_session_id: string
-        }
+        Args: { p_counted_total: number; p_session_id: string }
         Returns: {
           counted_total: number
           difference: number
@@ -1196,9 +1195,7 @@ export type Database = {
         }[]
       }
       inventory_costs: {
-        Args: {
-          p_tenant_id: string
-        }
+        Args: { p_tenant_id: string }
         Returns: {
           cost: number
           item_id: string
@@ -1206,63 +1203,8 @@ export type Database = {
         }[]
       }
       open_cash_session: {
-        Args: {
-          p_branch_id: string
-          p_opening_amount: number
-        }
+        Args: { p_branch_id: string; p_opening_amount: number }
         Returns: string
-      }
-      void_sale: {
-        Args: {
-          p_reason: string
-          p_sale_id: string
-        }
-        Returns: undefined
-      }
-      record_stock_count: {
-        Args: {
-          p_branch_id: string
-          p_counted: number
-          p_item_id: string
-          p_item_type: Database["public"]["Enums"]["inventory_item_type"]
-          p_note?: string | null
-        }
-        Returns: number
-      }
-      set_cash_permission: {
-        Args: {
-          p_can: boolean
-          p_tenant_id: string
-          p_user_id: string
-        }
-        Returns: undefined
-      }
-      set_service_bom: {
-        Args: {
-          p_lines: Json
-          p_service_id: string
-        }
-        Returns: undefined
-      }
-      settle_commission_period: {
-        Args: {
-          p_period: string
-          p_tenant_id: string
-        }
-        Returns: number
-      }
-      soft_delete_inventory_item: {
-        Args: {
-          p_item_id: string
-          p_item_type: Database["public"]["Enums"]["inventory_item_type"]
-        }
-        Returns: undefined
-      }
-      soft_delete_service: {
-        Args: {
-          p_service_id: string
-        }
-        Returns: undefined
       }
       provision_tenant: {
         Args: {
@@ -1277,6 +1219,43 @@ export type Database = {
           branch_id: string
           tenant_id: string
         }[]
+      }
+      record_stock_count: {
+        Args: {
+          p_branch_id: string
+          p_counted: number
+          p_item_id: string
+          p_item_type: Database["public"]["Enums"]["inventory_item_type"]
+          p_note?: string | null
+        }
+        Returns: number
+      }
+      set_cash_permission: {
+        Args: { p_can: boolean; p_tenant_id: string; p_user_id: string }
+        Returns: undefined
+      }
+      set_service_bom: {
+        Args: { p_lines: Json; p_service_id: string }
+        Returns: undefined
+      }
+      settle_commission_period: {
+        Args: { p_period: string; p_tenant_id: string }
+        Returns: number
+      }
+      soft_delete_inventory_item: {
+        Args: {
+          p_item_id: string
+          p_item_type: Database["public"]["Enums"]["inventory_item_type"]
+        }
+        Returns: undefined
+      }
+      soft_delete_service: {
+        Args: { p_service_id: string }
+        Returns: undefined
+      }
+      void_sale: {
+        Args: { p_reason: string; p_sale_id: string }
+        Returns: undefined
       }
     }
     Enums: {

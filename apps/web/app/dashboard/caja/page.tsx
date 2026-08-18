@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation"
+import { BranchPickerEmptyState } from "@/components/BranchPickerEmptyState"
+import { BranchSwitcher } from "@/components/BranchSwitcher"
 import { getCurrentMembership } from "@/lib/session"
-import { getDefaultBranch } from "@/lib/agenda-queries"
+import { getDefaultBranch, getTenantBranches } from "@/lib/agenda-queries"
 import {
   getAppointmentCharge, getCatalog, getLastClosedSession, getOpenSession,
   getOperators, getSessionSales, getTeam,
@@ -11,18 +13,32 @@ import { CashPermissionPanel } from "./CashPermissionPanel"
 export default async function CajaPage({
   searchParams,
 }: {
-  searchParams: Promise<{ turno?: string }>
+  searchParams: Promise<{ turno?: string; sucursal?: string }>
 }) {
   const { user, membership } = await getCurrentMembership()
   if (!user || !membership) redirect("/login")
 
-  // Sin selector de sucursal (doc A.3). El fallback a getDefaultBranch NO es
-  // defensivo: provision_tenant (0003:58) crea la membresía de la dueña con
-  // branch_id = null a propósito. Ver commit 917abae.
-  const branchId = membership.branch_id ?? (await getDefaultBranch(membership.tenant_id))?.id ?? null
-  if (!branchId) redirect("/dashboard")
-
+  const isMulti = membership.tenants.mode === "multi"
   const params = await searchParams
+
+  // En modo single no hace falta elegir: el fallback a getDefaultBranch NO
+  // es defensivo acá, provision_tenant (0003:58) crea la membresía de la
+  // dueña con branch_id = null a propósito. En multi, ese mismo fallback
+  // dejaba a la dueña encerrada en la sucursal más vieja sin forma de
+  // cambiar — la caja de las demás sucursales quedaba inalcanzable desde
+  // acá. Ver commit 917abae para el criterio original (single-only).
+  let branchId: string | null
+  let branches: { id: string; name: string }[] = []
+  if (isMulti) {
+    branches = await getTenantBranches(membership.tenant_id)
+    branchId = membership.branch_id ?? params.sucursal ?? null
+  } else {
+    branchId = membership.branch_id ?? (await getDefaultBranch(membership.tenant_id))?.id ?? null
+  }
+  if (!branchId) {
+    return <BranchPickerEmptyState title="Caja" basePath="/dashboard/caja" branches={branches} />
+  }
+
   const session = await getOpenSession(branchId)
 
   const [lastClosed, sales, catalog, operators, charge, team] = await Promise.all([
@@ -36,12 +52,23 @@ export default async function CajaPage({
 
   return (
     <div>
-      <h1>Caja</h1>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "var(--space-3)" }}>
+        <h1>Caja</h1>
+        {/* Sólo la dueña la ve: la encargada ya llega con su branch_id fijo
+            (isMulti && !membership.branch_id sólo es cierto para la dueña). */}
+        {isMulti && !membership.branch_id ? (
+          <BranchSwitcher branches={branches} currentBranchId={branchId} />
+        ) : null}
+      </div>
       {/* Solo dueña y encargada: son los únicos que pueden tocar el permiso,
           así que a una cajera el panel solo le mostraría algo que no puede
           usar. El RPC lo rechaza igual. */}
       <CashPermissionPanel tenantId={membership.tenant_id} team={team} />
+      {/* key por sucursal: mismo criterio que AgendaView (ver comentario en
+          agenda/page.tsx) — un remount limpio evita que el estado local
+          (monto de apertura, etc.) sobreviva al cambiar de sucursal. */}
       <CajaScreen
+        key={branchId}
         branchId={branchId}
         session={session}
         lastClosed={lastClosed}

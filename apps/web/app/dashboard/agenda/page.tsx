@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation"
-import { CalendarBlank } from "@phosphor-icons/react/dist/ssr"
-import { EmptyState } from "@beautycrm/ui"
+import { BranchPickerEmptyState } from "@/components/BranchPickerEmptyState"
 import { getCurrentMembership } from "@/lib/session"
 import {
   getAgendaAppointments,
@@ -32,17 +31,20 @@ export default async function AgendaPage({
   }
 
   if (!branchId) {
+    // En modo multi, la dueña (branch_id null, no está atada a ninguna
+    // sucursal) cae siempre acá hasta que elige una — a diferencia de la
+    // supervisora, que ya trae la suya en membership.branch_id. Antes esto
+    // era un cartel sin salida: no había forma de elegir sucursal desde acá,
+    // así que la dueña quedaba trabada. Ahora se listan las sucursales para
+    // que pueda entrar a la que quiera.
+    const branchesForPicker = isMulti ? await getTenantBranches(membership.tenant_id) : []
     return (
-      <div>
-        <h1>Agenda</h1>
-        <div className="card">
-          <EmptyState
-            icon={<CalendarBlank size={24} weight="regular" />}
-            title="Elegí una sucursal"
-            description="Seleccioná una sucursal para ver y cargar turnos."
-          />
-        </div>
-      </div>
+      <BranchPickerEmptyState
+        title="Agenda"
+        basePath="/dashboard/agenda"
+        paramName="branch"
+        branches={branchesForPicker}
+      />
     )
   }
 

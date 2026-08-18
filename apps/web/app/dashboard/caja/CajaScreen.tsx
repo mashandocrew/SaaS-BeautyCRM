@@ -14,6 +14,29 @@ function formatPrice(n: number): string {
   return new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS" }).format(n)
 }
 
+const PAYMENT_METHOD_LABELS: Record<string, string> = {
+  cash: "Efectivo", card: "Tarjeta / débito", transfer: "Transferencia",
+  mp: "Mercado Pago", other: "Otro",
+}
+
+/**
+ * Un total por medio de pago, no uno solo mezclado: sólo el efectivo se
+ * cuenta a mano y entra en el arqueo (close_cash_session, 0013, ya lo separa
+ * en la base). Tarjeta y transferencia se concilian contra el resumen del
+ * banco o de Mercado Pago, nunca contra el cajón — mostrarlos junto con el
+ * efectivo invitaba a mezclar los dos controles.
+ */
+function totalsByMethod(sales: SaleRecord[]): Record<string, number> {
+  const totals: Record<string, number> = {}
+  for (const sale of sales) {
+    if (sale.voided_at) continue
+    for (const payment of sale.payments) {
+      totals[payment.method] = (totals[payment.method] ?? 0) + payment.amount
+    }
+  }
+  return totals
+}
+
 export function CajaScreen({
   branchId, session, lastClosed, sales, catalog, operators, charge, role,
 }: {
@@ -89,19 +112,42 @@ export function CajaScreen({
   }
 
   // --- Caja abierta ---
-  const cashTaken = sales
-    .filter((s) => !s.voided_at)
-    .flatMap((s) => s.payments)
-    .filter((p) => p.method === "cash")
-    .reduce((sum, p) => sum + p.amount, 0)
+  const byMethod = totalsByMethod(sales)
+  const cashTaken = byMethod.cash ?? 0
 
   return (
     <div>
-      <div className="stat-grid" style={{ marginBottom: "var(--space-6)" }}>
+      <div className="stat-grid" style={{ marginBottom: "var(--space-4)" }}>
         <StatTile label="Apertura" value={formatPrice(Number(session.opening_amount))} />
         <StatTile label="Efectivo cobrado" value={formatPrice(cashTaken)} />
         <StatTile label="Ventas del turno" value={sales.filter((s) => !s.voided_at).length} />
       </div>
+
+      {/* Un total por medio de pago: la dueña concilia tarjeta y
+          transferencia contra el resumen del banco/Mercado Pago, nunca
+          contra el cajón — mezclarlos en un solo número no le sirve para
+          ninguno de los dos controles. */}
+      {Object.keys(byMethod).length > 0 ? (
+        <Card style={{ marginBottom: "var(--space-4)" }}>
+          <h2>Cobrado por medio de pago</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Medio</th>
+                <th>Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {Object.entries(byMethod).map(([method, total]) => (
+                <tr key={method}>
+                  <td>{PAYMENT_METHOD_LABELS[method] ?? method}</td>
+                  <td>{formatPrice(total)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Card>
+      ) : null}
 
       {error ? <p className="error-banner">{error}</p> : null}
 
