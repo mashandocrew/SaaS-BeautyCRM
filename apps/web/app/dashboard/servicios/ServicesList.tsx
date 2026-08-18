@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { Plus, Scissors } from "@phosphor-icons/react"
 import { Badge, Button, Card, EmptyState } from "@beautycrm/ui"
 import { toggleServiceActive } from "@/lib/service-actions"
-import type { ServiceRecord } from "@/lib/service-types"
+import type { BomLine, ServiceRecord, SupplyOption } from "@/lib/service-types"
 import { ServiceFormSheet } from "./ServiceFormSheet"
 
 const SIN_CATEGORIA = "Sin categoría"
@@ -18,10 +18,15 @@ export function ServicesList({
   tenantId,
   services,
   role,
+  supplyOptions,
+  serviceBoms,
 }: {
   tenantId: string
   services: ServiceRecord[]
   role: string
+  supplyOptions: SupplyOption[]
+  /** BOM de cada servicio, por id. Ver getServiceBoms en service-queries.ts. */
+  serviceBoms: Record<string, BomLine[]>
 }) {
   const router = useRouter()
   const [createOpen, setCreateOpen] = useState(false)
@@ -142,7 +147,14 @@ export function ServicesList({
           estado nace ya sembrado desde `service` sin ventana de carrera —
           ver el comentario en ServiceFormSheet.tsx. */}
       {createOpen && (
-        <ServiceFormSheet key="create" open onClose={() => setCreateOpen(false)} tenantId={tenantId} mode="create" />
+        <ServiceFormSheet
+          key="create"
+          open
+          onClose={() => setCreateOpen(false)}
+          tenantId={tenantId}
+          mode="create"
+          supplyOptions={supplyOptions}
+        />
       )}
       {editing && (
         <ServiceFormSheet
@@ -153,6 +165,8 @@ export function ServicesList({
           mode="edit"
           service={editing}
           canDelete={canDelete}
+          supplyOptions={supplyOptions}
+          initialBom={serviceBoms[editing.id] ?? []}
         />
       )}
     </div>

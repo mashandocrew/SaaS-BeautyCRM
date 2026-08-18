@@ -2,7 +2,7 @@
 
 import { createClient } from "@beautycrm/supabase/server"
 import { revalidatePath } from "next/cache"
-import type { AdjustmentKind, InventoryItemType, ProductInput, SupplyInput } from "./inventory-types"
+import type { AdjustmentKind, InventoryItemType, ProductInput, SupplyInput, SupplyUnit } from "./inventory-types"
 
 // Declarado local en vez de importado de otro módulo: cada módulo declara
 // el suyo (service-actions.ts y client-actions.ts hacen lo mismo).
@@ -49,7 +49,7 @@ function rpcError(
 
 export async function createSupply(tenantId: string, input: SupplyInput): Promise<ActionResult> {
   if (!input.name.trim()) return { ok: false, error: "El nombre es obligatorio." }
-  if (!Number.isFinite(input.costPerUnit) || input.costPerUnit < 0) {
+  if (input.costPerUnit !== undefined && (!Number.isFinite(input.costPerUnit) || input.costPerUnit < 0)) {
     return { ok: false, error: "El costo no puede ser negativo." }
   }
 
@@ -58,7 +58,10 @@ export async function createSupply(tenantId: string, input: SupplyInput): Promis
     tenant_id: tenantId,
     name: input.name.trim(),
     unit: input.unit,
-    cost_per_unit: input.costPerUnit,
+    // Quien no ve costos (no-owner) crea el insumo sin costo: nace en 0 y
+    // la dueña lo completa después. No 0-por-defecto silencioso: acá se
+    // elige explícitamente no mandar la columna.
+    cost_per_unit: input.costPerUnit ?? 0,
   })
   if (error) return { ok: false, error: "No pudimos crear el insumo.", code: error.code }
 
@@ -68,14 +71,23 @@ export async function createSupply(tenantId: string, input: SupplyInput): Promis
 
 export async function updateSupply(supplyId: string, input: SupplyInput): Promise<ActionResult> {
   if (!input.name.trim()) return { ok: false, error: "El nombre es obligatorio." }
-  if (!Number.isFinite(input.costPerUnit) || input.costPerUnit < 0) {
+  if (input.costPerUnit !== undefined && (!Number.isFinite(input.costPerUnit) || input.costPerUnit < 0)) {
     return { ok: false, error: "El costo no puede ser negativo." }
   }
+
+  // costPerUnit ausente (quien no ve costos, ver 0017) no entra al update:
+  // si mandáramos cost_per_unit siempre, una encargada editando sólo el
+  // nombre pisaría el costo real con lo que tenga el form, que ella no ve.
+  const patch: { name: string; unit: SupplyUnit; cost_per_unit?: number } = {
+    name: input.name.trim(),
+    unit: input.unit,
+  }
+  if (input.costPerUnit !== undefined) patch.cost_per_unit = input.costPerUnit
 
   const supabase = await createClient()
   const { data, error } = await supabase
     .from("supplies")
-    .update({ name: input.name.trim(), unit: input.unit, cost_per_unit: input.costPerUnit })
+    .update(patch)
     .eq("id", supplyId)
     .select("id")
     .maybeSingle()
@@ -91,7 +103,7 @@ export async function createProduct(tenantId: string, input: ProductInput): Prom
   if (!Number.isFinite(input.salePrice) || input.salePrice < 0) {
     return { ok: false, error: "El precio de venta no puede ser negativo." }
   }
-  if (!Number.isFinite(input.cost) || input.cost < 0) {
+  if (input.cost !== undefined && (!Number.isFinite(input.cost) || input.cost < 0)) {
     return { ok: false, error: "El costo no puede ser negativo." }
   }
 
@@ -100,7 +112,7 @@ export async function createProduct(tenantId: string, input: ProductInput): Prom
     tenant_id: tenantId,
     name: input.name.trim(),
     sale_price: input.salePrice,
-    cost: input.cost,
+    cost: input.cost ?? 0,
   })
   if (error) return { ok: false, error: "No pudimos crear el producto.", code: error.code }
 
@@ -113,14 +125,20 @@ export async function updateProduct(productId: string, input: ProductInput): Pro
   if (!Number.isFinite(input.salePrice) || input.salePrice < 0) {
     return { ok: false, error: "El precio de venta no puede ser negativo." }
   }
-  if (!Number.isFinite(input.cost) || input.cost < 0) {
+  if (input.cost !== undefined && (!Number.isFinite(input.cost) || input.cost < 0)) {
     return { ok: false, error: "El costo no puede ser negativo." }
   }
+
+  const patch: { name: string; sale_price: number; cost?: number } = {
+    name: input.name.trim(),
+    sale_price: input.salePrice,
+  }
+  if (input.cost !== undefined) patch.cost = input.cost
 
   const supabase = await createClient()
   const { data, error } = await supabase
     .from("retail_products")
-    .update({ name: input.name.trim(), sale_price: input.salePrice, cost: input.cost })
+    .update(patch)
     .eq("id", productId)
     .select("id")
     .maybeSingle()

@@ -2,10 +2,10 @@
 
 import { useState, type FormEvent } from "react"
 import { useRouter } from "next/navigation"
-import { Trash } from "@phosphor-icons/react"
+import { Plus, Trash } from "@phosphor-icons/react"
 import { Button, Field, Input, Sheet } from "@beautycrm/ui"
-import { createService, deleteService, updateService } from "@/lib/service-actions"
-import type { ServiceInput, ServiceRecord } from "@/lib/service-types"
+import { createService, deleteService, setServiceBom, updateService } from "@/lib/service-actions"
+import type { BomLine, ServiceInput, ServiceRecord, SupplyOption } from "@/lib/service-types"
 
 export function ServiceFormSheet({
   open,
@@ -14,6 +14,8 @@ export function ServiceFormSheet({
   mode,
   service,
   canDelete = false,
+  supplyOptions,
+  initialBom = [],
 }: {
   open: boolean
   onClose: () => void
@@ -22,6 +24,10 @@ export function ServiceFormSheet({
   service?: ServiceRecord | null
   /** Solo el dueño puede borrar: services_delete es owner-only. */
   canDelete?: boolean
+  /** Insumos del tenant elegibles para el BOM. Ver getSupplyOptions. */
+  supplyOptions: SupplyOption[]
+  /** BOM ya cargado, para editar. Vacío en alta. */
+  initialBom?: BomLine[]
 }) {
   const router = useRouter()
   // Duración y precio viven como string, no como number: si fueran number,
@@ -40,9 +46,29 @@ export function ServiceFormSheet({
   const [price, setPrice] = useState(String(service?.price ?? 0))
   const [category, setCategory] = useState(service?.category ?? "")
   const [isActive, setIsActive] = useState(service?.is_active ?? true)
+  // string y no number por el mismo motivo que duration/price arriba: un
+  // input number vacío mientras se tipea no puede ser NaN.
+  const [bomLines, setBomLines] = useState<{ supplyId: string; quantity: string }[]>(
+    initialBom.map((l) => ({ supplyId: l.supply_id, quantity: String(l.quantity_consumed) })),
+  )
   const [loading, setLoading] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  function addBomLine() {
+    const chosen = new Set(bomLines.map((l) => l.supplyId))
+    const next = supplyOptions.find((s) => !chosen.has(s.id))
+    if (!next) return
+    setBomLines((lines) => [...lines, { supplyId: next.id, quantity: "1" }])
+  }
+
+  function updateBomLine(index: number, patch: Partial<{ supplyId: string; quantity: string }>) {
+    setBomLines((lines) => lines.map((l, i) => (i === index ? { ...l, ...patch } : l)))
+  }
+
+  function removeBomLine(index: number) {
+    setBomLines((lines) => lines.filter((_, i) => i !== index))
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -64,6 +90,16 @@ export function ServiceFormSheet({
       return
     }
 
+    const parsedBom: BomLine[] = []
+    for (const line of bomLines) {
+      const quantity = Number(line.quantity)
+      if (!Number.isFinite(quantity) || quantity <= 0) {
+        setError("La cantidad de cada insumo tiene que ser mayor a 0.")
+        return
+      }
+      parsedBom.push({ supply_id: line.supplyId, quantity_consumed: quantity })
+    }
+
     const input: ServiceInput = {
       name,
       durationMinutes: parsedDuration,
@@ -74,10 +110,20 @@ export function ServiceFormSheet({
 
     setLoading(true)
     const result = mode === "create" ? await createService(tenantId, input) : await updateService(service!.id, input)
-    setLoading(false)
 
     if (!result.ok) {
+      setLoading(false)
       setError(result.error)
+      return
+    }
+
+    // El servicio ya se guardó cuando esto falla: el error queda en el
+    // banner, pero el Sheet no se cierra para que la persona pueda
+    // reintentar guardar el BOM sin volver a llenar el resto del form.
+    const bomResult = await setServiceBom(result.data.id, parsedBom)
+    setLoading(false)
+    if (!bomResult.ok) {
+      setError(`El servicio se guardó, pero no pudimos guardar sus insumos: ${bomResult.error}`)
       return
     }
 
@@ -164,6 +210,79 @@ export function ServiceFormSheet({
             onChange={(e) => setIsActive(e.target.checked)}
           />
         </Field>
+
+        {/* Qué insumos consume el servicio y cuánto de cada uno. Cargando
+            esto una vez, la venta descuenta stock sola en cada turno
+            cobrado — sin esto no tiene sentido tener inventario si no se
+            actualiza solo. Ver migrations/0015 (set_service_bom) y el Caja
+            module, que dispara el descuento en cada venta. */}
+        <hr style={{ margin: "var(--space-6) 0", border: 0, borderTop: "1px solid var(--color-border)" }} />
+        <h3 style={{ marginBottom: "var(--space-2)" }}>Insumos que consume</h3>
+        <p className="field-hint" style={{ marginBottom: "var(--space-3)" }}>
+          Cada vez que se cobre este servicio, se descuenta esta cantidad del stock de cada insumo.
+        </p>
+
+        {supplyOptions.length === 0 ? (
+          <p className="field-hint" style={{ marginBottom: "var(--space-3)" }}>
+            Todavía no cargaste insumos en Inventario. Cargalos ahí para poder elegirlos acá.
+          </p>
+        ) : (
+          bomLines.map((line, index) => {
+            const chosenElsewhere = new Set(bomLines.filter((_, i) => i !== index).map((l) => l.supplyId))
+            const availableForRow = supplyOptions.filter(
+              (s) => s.id === line.supplyId || !chosenElsewhere.has(s.id),
+            )
+            const unit = supplyOptions.find((s) => s.id === line.supplyId)?.unit ?? ""
+
+            return (
+              <div
+                key={index}
+                style={{ display: "flex", gap: "var(--space-2)", alignItems: "flex-end", marginBottom: "var(--space-3)" }}
+              >
+                <div style={{ flex: 2 }}>
+                  <Field label="Insumo" htmlFor={`bom-supply-${index}`}>
+                    <select
+                      id={`bom-supply-${index}`}
+                      className="input"
+                      value={line.supplyId}
+                      onChange={(e) => updateBomLine(index, { supplyId: e.target.value })}
+                    >
+                      {availableForRow.map((s) => (
+                        <option key={s.id} value={s.id}>{s.name}</option>
+                      ))}
+                    </select>
+                  </Field>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <Field label={`Cantidad${unit ? ` (${unit})` : ""}`} htmlFor={`bom-qty-${index}`}>
+                    <Input
+                      id={`bom-qty-${index}`}
+                      type="number"
+                      min={0}
+                      step="any"
+                      value={line.quantity}
+                      onChange={(e) => updateBomLine(index, { quantity: e.target.value })}
+                    />
+                  </Field>
+                </div>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  aria-label={`Quitar insumo ${supplyOptions.find((s) => s.id === line.supplyId)?.name ?? ""}`}
+                  onClick={() => removeBomLine(index)}
+                >
+                  <Trash size={16} weight="bold" />
+                </Button>
+              </div>
+            )
+          })
+        )}
+
+        {supplyOptions.length > bomLines.length ? (
+          <Button type="button" variant="secondary" onClick={addBomLine} style={{ marginBottom: "var(--space-4)" }}>
+            <Plus size={16} weight="bold" /> Agregar insumo
+          </Button>
+        ) : null}
 
         <Button type="submit" disabled={loading}>
           {loading ? "Guardando..." : mode === "create" ? "Crear servicio" : "Guardar cambios"}

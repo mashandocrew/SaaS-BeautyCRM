@@ -6,6 +6,7 @@ import {
 } from "@/lib/reportes-queries"
 import { AppointmentsStatusCard } from "./AppointmentsStatusCard"
 import { ExportCsvButton } from "./ExportCsvButton"
+import { ExportPdfButton } from "./ExportPdfButton"
 import { ReportesFilters } from "./ReportesFilters"
 import { ReportesSummary } from "./ReportesSummary"
 import { TopItemsTable } from "./TopItemsTable"
@@ -55,8 +56,19 @@ export default async function ReportesPage({
 
   return (
     <div>
-      <h1>Reportes</h1>
-      <ReportesFilters from={from} to={toInput} branchId={branchId} branches={branches} />
+      <h1 className="no-print">Reportes</h1>
+
+      {/* Sólo visible al imprimir (ver .print-only en globals.css): la
+          pantalla ya muestra el negocio en el Sidebar y el rango en los
+          filtros, pero ninguno de los dos sale en el PDF. */}
+      <div className="print-only" style={{ marginBottom: "var(--space-4)" }}>
+        <h1>{membership.tenants.business_name}</h1>
+        <p>Reporte del {toInput === from ? from : `${from} al ${toInput}`}</p>
+      </div>
+
+      <div className="no-print">
+        <ReportesFilters from={from} to={toInput} branchId={branchId} branches={branches} />
+      </div>
       <ReportesSummary summary={summary} inventoryValuation={inventoryValuation} />
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "var(--space-3)", marginBottom: "var(--space-4)" }}>
@@ -65,7 +77,10 @@ export default async function ReportesPage({
         <AppointmentsStatusCard counts={appointmentCounts} />
       </div>
 
-      <ExportCsvButton rows={exportRows} from={from} to={toInput} />
+      <div className="no-print" style={{ display: "flex", gap: "var(--space-3)" }}>
+        <ExportCsvButton rows={exportRows} from={from} to={toInput} />
+        <ExportPdfButton />
+      </div>
     </div>
   )
 }

@@ -1008,3 +1008,39 @@ tbody tr:hover {
   min-width: 140px;
   text-align: center;
 }
+
+/* Exportar reportes a PDF: usa window.print(), sin librería nueva. El
+   encabezado sólo aparece al imprimir — en pantalla es redundante con el
+   <h1> de la página y los filtros ya dicen el rango elegido. */
+
+.print-only {
+  display: none;
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  .print-only {
+    display: block;
+  }
+
+  .app-shell {
+    display: block;
+  }
+
+  .sidebar,
+  .app-topbar {
+    display: none !important;
+  }
+
+  .app-main {
+    margin: 0;
+  }
+
+  .container {
+    max-width: none !important;
+    padding: 0;
+  }
+}

@@ -14,7 +14,7 @@ function formatPrice(n: number): string {
 }
 
 export function InventoryList({
-  tenantId, branchId, items, movementsByItem, role,
+  tenantId, branchId, items, movementsByItem, role, canSeeCost,
 }: {
   tenantId: string
   branchId: string
@@ -22,6 +22,8 @@ export function InventoryList({
   /** Movimientos precargados por item_id, para el Sheet de ajuste. */
   movementsByItem: Record<string, InventoryMovement[]>
   role: string
+  /** Owner-only desde 0017: el costo no llega a la encargada. */
+  canSeeCost: boolean
 }) {
   const [creating, setCreating] = useState<InventoryItemType | null>(null)
   const [editing, setEditing] = useState<InventoryItem | null>(null)
@@ -131,6 +133,7 @@ export function InventoryList({
           onClose={() => setCreating(null)}
           tenantId={tenantId}
           itemType={creating}
+          canSeeCost={canSeeCost}
         />
       )}
       {editing && (
@@ -142,6 +145,7 @@ export function InventoryList({
           itemType={editing.item_type}
           item={editing}
           canDelete={canDelete}
+          canSeeCost={canSeeCost}
         />
       )}
       {adjusting && (

@@ -16,7 +16,7 @@ const UNITS: { value: SupplyUnit; label: string }[] = [
 ]
 
 export function ItemFormSheet({
-  open, onClose, tenantId, itemType, item, canDelete = false,
+  open, onClose, tenantId, itemType, item, canDelete = false, canSeeCost,
 }: {
   open: boolean
   onClose: () => void
@@ -25,6 +25,8 @@ export function ItemFormSheet({
   /** null = alta. El padre monta este componente con `key` por ítem. */
   item?: InventoryItem | null
   canDelete?: boolean
+  /** Owner-only desde 0017. Sin esto, ni se muestra ni se manda el costo. */
+  canSeeCost: boolean
 }) {
   const router = useRouter()
   // Sembrado en los inicializadores de useState, nunca con un useEffect:
@@ -49,7 +51,7 @@ export function ItemFormSheet({
     setError(null)
     setLoading(true)
 
-    const cost = Number(costPerUnit)
+    const cost = canSeeCost ? Number(costPerUnit) : undefined
     const price = Number(salePrice)
     // Ternario sobre `item` y no sobre `isEdit`: TypeScript no propaga la
     // narrowing de un booleano derivado, así que con isEdit haría falta un
@@ -135,19 +137,23 @@ export function ItemFormSheet({
           </Field>
         )}
 
-        <Field
-          label={isSupply ? "Costo por unidad" : "Costo"}
-          htmlFor="item-cost"
-          hint={isSupply ? "Lo que te cuesta cada ml, gr o unidad." : "Lo que te cuesta comprarlo."}
-        >
-          <Input
-            id="item-cost"
-            type="number"
-            value={costPerUnit}
-            onChange={(e) => setCostPerUnit(e.target.value)}
-            required
-          />
-        </Field>
+        {/* Owner-only (0017): la encargada no ve ni edita el costo. Si crea
+            un ítem, nace en 0 y la dueña lo completa después. */}
+        {canSeeCost ? (
+          <Field
+            label={isSupply ? "Costo por unidad" : "Costo"}
+            htmlFor="item-cost"
+            hint={isSupply ? "Lo que te cuesta cada ml, gr o unidad." : "Lo que te cuesta comprarlo."}
+          >
+            <Input
+              id="item-cost"
+              type="number"
+              value={costPerUnit}
+              onChange={(e) => setCostPerUnit(e.target.value)}
+              required
+            />
+          </Field>
+        ) : null}
 
         <Button type="submit" disabled={loading}>
           {loading ? "Guardando..." : isEdit ? "Guardar cambios" : isSupply ? "Crear insumo" : "Crear producto"}

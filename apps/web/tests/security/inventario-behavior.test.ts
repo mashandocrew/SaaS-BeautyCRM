@@ -106,7 +106,9 @@ async function main() {
       // Desde 0015 el costo no se puede releer por la tabla: los grants de
       // columna son por rol de base de datos, y dueña, encargada y operadora
       // comparten `authenticated`. Escribirlo sí se puede (revocamos select,
-      // no update); leerlo va por inventory_costs, que chequea el rol.
+      // no update). Desde 0017, releerlo por inventory_costs es owner-only:
+      // la supervisora puede seguir escribiendo el costo a ciegas, pero no
+      // releerlo.
       const { data: supUpdate, error: supUpdateError } = await supervisorClient
         .from("supplies")
         .update({ cost_per_unit: 600 })
@@ -114,19 +116,18 @@ async function main() {
         .select("id")
         .maybeSingle()
 
-      const { data: costs } = await supervisorClient.rpc("inventory_costs", {
+      const { error: supCostsError } = await supervisorClient.rpc("inventory_costs", {
         p_tenant_id: tenantId,
       })
-      const elCosto = (costs ?? []).find((c: { item_id: string }) => c.item_id === supSupply.id)
 
-      if (supUpdateError || !supUpdate || Number(elCosto?.cost) !== 600) {
+      if (supUpdateError || !supUpdate || supCostsError?.code !== "42501") {
         console.error(
-          "  FALLO — la supervisora no pudo editar el insumo:",
-          supUpdateError?.message ?? `costo leído: ${elCosto?.cost}`,
+          "  FALLO — la supervisora no pudo editar el insumo, o pudo releer el costo:",
+          supUpdateError?.message ?? `código: ${supCostsError?.code}`,
         )
         failures++
       } else {
-        console.log("  OK — creó, editó, y releyó el costo por la vía autorizada")
+        console.log("  OK — creó y editó el insumo, pero no puede releer el costo (0017)")
       }
     }
 
@@ -374,7 +375,9 @@ async function main() {
     }
 
     // --- Test 10: quién sí obtiene el costo ---
-    console.log("Test 10: dueña y encargada obtienen el costo; la operadora es rechazada...")
+    // Desde 0017 el costo es owner-only: la encargada quedó afuera junto con
+    // la operadora.
+    console.log("Test 10: sólo la dueña obtiene el costo; encargada y operadora son rechazadas...")
     {
       const { data: comoDuena, error: duenaError } = await ownerClient.rpc("inventory_costs", {
         p_tenant_id: tenantId,
@@ -387,8 +390,8 @@ async function main() {
       })
 
       const duenaOk = !duenaError && (comoDuena ?? []).length > 0
-      if (duenaOk && !comoEncargada && comoOperadora?.code === "42501") {
-        console.log("  OK — dueña y encargada sí, operadora rechazada con 42501")
+      if (duenaOk && comoEncargada?.code === "42501" && comoOperadora?.code === "42501") {
+        console.log("  OK — sólo la dueña; encargada y operadora rechazadas con 42501")
       } else {
         failures++
         console.error(

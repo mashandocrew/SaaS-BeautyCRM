@@ -38,13 +38,16 @@ export default async function InventarioPage() {
       <h1>Inventario</h1>
       {/* role viaja hasta el Sheet para decidir si se muestra "Eliminar":
           el borrado es owner-only. El layout de /dashboard ya sacó a las
-          operadoras, así que acá role es owner o supervisor. */}
+          operadoras, así que acá role es owner o supervisor.
+          canSeeCost también es owner-only desde 0017: el costo de insumos y
+          productos sale del inventario de una encargada. */}
       <InventoryList
         tenantId={membership.tenant_id}
         branchId={branchId}
         items={items}
         movementsByItem={movementsByItem}
         role={membership.role}
+        canSeeCost={membership.role === "owner"}
       />
     </div>
   )

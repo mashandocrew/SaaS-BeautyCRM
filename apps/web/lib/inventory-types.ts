@@ -45,16 +45,20 @@ export type InventoryMovement = Tables<"inventory_movements">
  * tenant lo pone la server action desde la sesión, nunca el cliente —
  * mismo criterio que ServiceInput en lib/service-types.ts.
  */
+/**
+ * costPerUnit es opcional: quien no ve costos (no-owner, ver 0017) no lo
+ * manda, y la action no toca esa columna en vez de pisarla con 0.
+ */
 export type SupplyInput = {
   name: string
   unit: SupplyUnit
-  costPerUnit: number
+  costPerUnit?: number
 }
 
 export type ProductInput = {
   name: string
   salePrice: number
-  cost: number
+  cost?: number
 }
 
 /**
