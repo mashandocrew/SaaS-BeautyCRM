@@ -223,16 +223,26 @@ export function NewAppointmentModal({
         </Field>
 
         <Field label="Servicios" htmlFor="agenda-services">
-          <div id="agenda-services" className="agenda-service-list">
-            {services.map((s) => (
-              <label key={s.id} className="agenda-service-option">
-                <input type="checkbox" checked={serviceIds.includes(s.id)} onChange={() => toggleService(s.id)} />
-                <span>
-                  {s.name} · {s.duration_minutes} min · ${s.price}
-                </span>
-              </label>
-            ))}
-          </div>
+          {services.length === 0 ? (
+            // Antes esto quedaba en blanco entre "Servicios" y "Operadora"
+            // sin explicación — parecía que el checkbox no aparecía por un
+            // bug. La causa real es que el catálogo de Servicios está
+            // vacío: sin eso no hay nada que elegir acá.
+            <p className="field-hint">
+              Todavía no cargaste ningún servicio. Andá a Servicios para crear el primero.
+            </p>
+          ) : (
+            <div id="agenda-services" className="agenda-service-list">
+              {services.map((s) => (
+                <label key={s.id} className="agenda-service-option">
+                  <input type="checkbox" checked={serviceIds.includes(s.id)} onChange={() => toggleService(s.id)} />
+                  <span>
+                    {s.name} · {s.duration_minutes} min · ${s.price}
+                  </span>
+                </label>
+              ))}
+            </div>
+          )}
         </Field>
 
         <Field label="Operadora" htmlFor="agenda-operator">

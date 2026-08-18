@@ -17,6 +17,9 @@ function revalidateCaja() {
   revalidatePath("/dashboard/caja")
   revalidatePath("/dashboard")
   revalidatePath("/dashboard/inventario")
+  // setCashPermission también se llama desde el perfil de cada operadora
+  // en Configuración → Equipo (mismo permiso, distinta puerta de entrada).
+  revalidatePath("/dashboard/configuracion")
 }
 
 /**
