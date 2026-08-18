@@ -19,6 +19,7 @@
     "test:comisiones": "pnpm --filter @beautycrm/web test:comisiones",
     "test:reportes": "pnpm --filter @beautycrm/web test:reportes",
     "test:sucursales": "pnpm --filter @beautycrm/web test:sucursales",
+    "test:configuracion": "pnpm --filter @beautycrm/web test:configuracion",
     "types:generate": "supabase gen types typescript --project-id xhbrhpfzehshiyjzlxnx --schema public > packages/supabase/src/types.ts"
   }
 }
