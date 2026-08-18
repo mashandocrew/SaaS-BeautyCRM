@@ -1,9 +1,10 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { CalendarBlank, CaretLeft, CaretRight } from "@phosphor-icons/react"
 import { Button, EmptyState } from "@beautycrm/ui"
+import { MiniCalendar } from "@/components/MiniCalendar"
 import type { AgendaAppointment, AgendaBranch, AgendaOperator, AgendaService } from "@/lib/agenda-types"
 import {
   AGENDA_DAY_END_HOUR,
@@ -58,8 +59,19 @@ export function AgendaView({
   const [detailAppointmentId, setDetailAppointmentId] = useState<string | null>(null)
   const [isMobile, setIsMobile] = useState(false)
   const [mobileOperatorId, setMobileOperatorId] = useState(operators[0]?.id ?? "")
+  const [calendarOpen, setCalendarOpen] = useState(false)
+  const calendarRef = useRef<HTMLDivElement>(null)
 
   useAgendaRealtime(tenantId, () => router.refresh())
+
+  useEffect(() => {
+    if (!calendarOpen) return
+    function handleClickOutside(e: MouseEvent) {
+      if (calendarRef.current && !calendarRef.current.contains(e.target as Node)) setCalendarOpen(false)
+    }
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [calendarOpen])
 
   // Vista diaria en mobile/tablet: mismo componente AgendaGrid, pero con
   // una sola columna de operadora (elegida acá) en vez de columnas
@@ -127,6 +139,22 @@ export function AgendaView({
     router.push(`/dashboard/agenda?${params.toString()}`)
   }
 
+  // Saltar a una fecha puntual del mini calendario, en vez de tener que
+  // clickear "semana siguiente" varias veces. page.tsx resuelve el
+  // weekStart real con startOfWeek(week) — acá solo hace falta mandar
+  // cualquier fecha dentro de la semana buscada.
+  function navigateToDate(dateStr: string) {
+    const [y, m, d] = dateStr.split("-").map(Number)
+    const picked = new Date(y, m - 1, d)
+    const params = new URLSearchParams()
+    params.set("week", picked.toISOString())
+    if (branches.length > 0) params.set("branch", branchId)
+    setCalendarOpen(false)
+    router.push(`/dashboard/agenda?${params.toString()}`)
+  }
+
+  const selectedDayStr = `${selectedDay.getFullYear()}-${String(selectedDay.getMonth() + 1).padStart(2, "0")}-${String(selectedDay.getDate()).padStart(2, "0")}`
+
   if (operators.length === 0) {
     return (
       <div>
@@ -154,6 +182,19 @@ export function AgendaView({
         <Button variant="secondary" onClick={() => navigateWeek(1)} aria-label="Semana siguiente">
           <CaretRight size={16} weight="bold" />
         </Button>
+
+        {/* Saltar a una fecha puntual con el mini calendario, en vez de
+            navegar semana por semana — lo que faltaba acá. */}
+        <div ref={calendarRef} style={{ position: "relative" }}>
+          <Button variant="secondary" onClick={() => setCalendarOpen((v) => !v)} aria-label="Elegir fecha">
+            <CalendarBlank size={16} weight="bold" />
+          </Button>
+          {calendarOpen ? (
+            <div className="mini-calendar-popover">
+              <MiniCalendar value={selectedDayStr} onSelect={navigateToDate} />
+            </div>
+          ) : null}
+        </div>
 
         {/* El selector de sucursal solo tiene sentido en modo multi — en
             modo single page.tsx pasa branches=[] y este <select> ni se

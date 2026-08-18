@@ -1044,3 +1044,90 @@ tbody tr:hover {
     padding: 0;
   }
 }
+
+/* Mini calendario (estilo Apple) — reemplaza los <input type="date">
+   nativos donde hace falta elegir una fecha de un vistazo, en vez de
+   navegar de a una semana/mes por vez. Ver components/MiniCalendar.tsx. */
+
+.mini-calendar-trigger {
+  cursor: pointer;
+  text-align: left;
+  background: var(--color-surface);
+}
+
+.mini-calendar-popover {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + var(--space-1));
+  left: 0;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  padding: var(--space-3);
+}
+
+.mini-calendar {
+  width: 240px;
+}
+
+.mini-calendar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-2);
+  font: var(--text-small);
+  font-weight: 600;
+}
+
+.mini-calendar-header button {
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  color: var(--color-ink-soft);
+  display: flex;
+  padding: var(--space-1);
+  border-radius: var(--radius-sm);
+}
+
+.mini-calendar-header button:hover {
+  background: var(--color-bg);
+  color: var(--color-ink);
+}
+
+.mini-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+
+.mini-calendar-weekday {
+  font: var(--text-micro);
+  color: var(--color-ink-soft);
+  text-align: center;
+  padding-bottom: var(--space-1);
+}
+
+.mini-calendar-day {
+  aspect-ratio: 1;
+  border: 0;
+  background: transparent;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  font: var(--text-small);
+  color: var(--color-ink);
+}
+
+.mini-calendar-day:hover {
+  background: var(--color-bg);
+}
+
+.mini-calendar-day[data-today="true"] {
+  font-weight: 700;
+  color: var(--color-accent);
+}
+
+.mini-calendar-day[data-selected="true"] {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+}

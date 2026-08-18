@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { Button, Card } from "@beautycrm/ui"
+import { MiniCalendarField } from "@/components/MiniCalendar"
 
 export function ReportesFilters({
   from,
@@ -32,16 +33,8 @@ export function ReportesFilters({
   return (
     <Card style={{ marginBottom: "var(--space-4)" }}>
       <div style={{ display: "flex", gap: "var(--space-3)", alignItems: "flex-end", flexWrap: "wrap" }}>
-        <div>
-          <label htmlFor="reportes-from">Desde</label>
-          <br />
-          <input id="reportes-from" type="date" value={fromValue} onChange={(e) => setFromValue(e.target.value)} />
-        </div>
-        <div>
-          <label htmlFor="reportes-to">Hasta</label>
-          <br />
-          <input id="reportes-to" type="date" value={toValue} onChange={(e) => setToValue(e.target.value)} />
-        </div>
+        <MiniCalendarField label="Desde" value={fromValue} onChange={setFromValue} />
+        <MiniCalendarField label="Hasta" value={toValue} onChange={setToValue} />
         {branches ? (
           <div>
             <label htmlFor="reportes-branch">Sucursal</label>
