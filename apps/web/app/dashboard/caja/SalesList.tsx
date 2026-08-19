@@ -33,6 +33,14 @@ export function SalesList({ sales, canVoid }: { sales: SaleRecord[]; canVoid: bo
       `¿Por qué anulás esta venta de ${formatPrice(sale.total)}? El motivo queda registrado.`,
     )
     if (reason === null) return
+    // El prompt sólo bloquea con "Cancelar" (reason === null); confirmar
+    // vacío dejaba pasar la anulación sin ningún motivo registrado — con
+    // impacto contable (afecta el efectivo cobrado del turno), conviene
+    // exigirlo en vez de aceptar "".
+    if (!reason.trim()) {
+      window.alert("Tenés que escribir un motivo para anular la venta.")
+      return
+    }
 
     setError(null)
     setVoiding(sale.id)

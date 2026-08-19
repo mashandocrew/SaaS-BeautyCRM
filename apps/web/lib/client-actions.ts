@@ -19,7 +19,12 @@ export type ClientInput = {
   notes: string | null
 }
 
-export async function createClient(tenantId: string, input: ClientInput): Promise<ActionResult<ClientRecord>> {
+export async function createClient(
+  tenantId: string,
+  input: ClientInput,
+  /** true cuando ya se avisó del teléfono duplicado y se confirmó igual. */
+  confirmDuplicatePhone = false,
+): Promise<ActionResult<ClientRecord>> {
   if (!input.fullName.trim()) return { ok: false, error: "El nombre es obligatorio." }
 
   const supabase = await createSupabaseClient()
@@ -27,6 +32,28 @@ export async function createClient(tenantId: string, input: ClientInput): Promis
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) return { ok: false, error: "Sesión inválida." }
+
+  // El teléfono es el identificador natural del cliente en un salón
+  // (WhatsApp, recordatorios) — cargar dos personas distintas con el mismo
+  // número sin avisar mezcla sus historiales en la práctica. No se bloquea
+  // (puede ser legítimo: familia compartiendo un teléfono), pero se avisa
+  // antes de crear.
+  if (input.phone && !confirmDuplicatePhone) {
+    const { data: existing } = await supabase
+      .from("clients")
+      .select("full_name")
+      .eq("tenant_id", tenantId)
+      .eq("phone", input.phone)
+      .limit(1)
+      .maybeSingle()
+    if (existing) {
+      return {
+        ok: false,
+        error: `Ya hay un cliente con este teléfono: ${existing.full_name}.`,
+        code: "PHONE_DUPLICATE",
+      }
+    }
+  }
 
   const { data, error } = await supabase
     .from("clients")

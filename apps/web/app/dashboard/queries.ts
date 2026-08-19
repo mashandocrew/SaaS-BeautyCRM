@@ -23,6 +23,9 @@ export type AppointmentRow = {
   status: string
   clients: { full_name: string } | null
   users: { full_name: string | null } | null
+  /** "Hecho" pero sin ninguna venta no anulada asociada — se prestó el
+   *  servicio y nadie lo cobró. Ver getDashboardData. */
+  doneWithoutSale: boolean
 }
 
 export type StockAlertRow = {
@@ -56,10 +59,15 @@ export async function getDashboardData(tenantId: string) {
         .order("starts_at", { ascending: true })
         .returns<AppointmentRow[]>(),
 
+      // .is("voided_at", null) en las dos: sin este filtro, una venta
+      // anulada seguía sumando acá aunque Reportes (lib/reportes-queries.ts)
+      // ya la excluye — dos pantallas del mismo sistema mostrando dos
+      // totales de facturación distintos para el mismo período.
       supabase
         .from("sales")
         .select("total")
         .eq("tenant_id", tenantId)
+        .is("voided_at", null)
         .gte("created_at", todayStart)
         .lte("created_at", todayEnd)
         .returns<SaleTotalRow[]>(),
@@ -68,6 +76,7 @@ export async function getDashboardData(tenantId: string) {
         .from("sales")
         .select("total")
         .eq("tenant_id", tenantId)
+        .is("voided_at", null)
         .gte("created_at", monthStart)
         .returns<SaleTotalRow[]>(),
 
@@ -115,8 +124,31 @@ export async function getDashboardData(tenantId: string) {
     min_alert_level: Number(item.min_alert_level),
   }))
 
+  // Un turno "Hecho" no genera ninguna venta por sí solo — eso pasa recién
+  // al cobrar desde Caja. Sin esta marca, un turno prestado y nunca cobrado
+  // se ve idéntico en esta tabla a uno que sí se cobró: la dueña no tiene
+  // forma de notarlo salvo yendo a reconciliar a mano contra Caja/Reportes.
+  const doneIds = (todayAppointments.data ?? [])
+    .filter((a) => a.status === "done")
+    .map((a) => a.id)
+  const paidIds = new Set<string>()
+  if (doneIds.length > 0) {
+    const { data: paidSales } = await supabase
+      .from("sales")
+      .select("appointment_id")
+      .in("appointment_id", doneIds)
+      .is("voided_at", null)
+      .returns<{ appointment_id: string | null }[]>()
+    for (const s of paidSales ?? []) {
+      if (s.appointment_id) paidIds.add(s.appointment_id)
+    }
+  }
+
   return {
-    todayAppointments: todayAppointments.data ?? [],
+    todayAppointments: (todayAppointments.data ?? []).map((a) => ({
+      ...a,
+      doneWithoutSale: a.status === "done" && !paidIds.has(a.id),
+    })),
     todayRevenue,
     monthRevenue,
     stockAlerts,

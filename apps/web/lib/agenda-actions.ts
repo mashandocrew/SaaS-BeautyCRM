@@ -98,20 +98,15 @@ export async function searchClients(
 ): Promise<ActionResult<ClientSearchResult[]>> {
   if (query.trim().length < 2) return { ok: true, data: [] }
 
-  // Sanitizamos antes de interpolar en .or(): una coma o un paréntesis en
-  // el input del usuario rompe la sintaxis del filtro PostgREST (coma
-  // separa condiciones, paréntesis abre/cierra grupos), lo que puede
-  // convertir la búsqueda en un filtro distinto al que el usuario escribió.
-  const safeQuery = query.replace(/[,()]/g, " ").trim()
-
   const supabase = await createClient()
-  const { data, error } = await supabase
-    .from("clients")
-    .select("id, full_name, phone")
-    .eq("tenant_id", tenantId)
-    .or(`full_name.ilike.%${safeQuery}%,phone.ilike.%${safeQuery}%`)
-    .order("full_name")
-    .limit(10)
+  // Vía RPC (app.search_clients, 0020) y no .or(): además de esquivar el
+  // problema de coma/paréntesis rompiendo la sintaxis del filtro
+  // PostgREST, unaccent() ahí adentro hace que "Martinez" (como suele
+  // escribirlo la gente apurada) matchee "Martínez" con tilde guardado.
+  const { data, error } = await supabase.rpc("search_clients", {
+    p_tenant_id: tenantId,
+    p_query: query.trim(),
+  })
 
   if (error) return { ok: false, error: "No pudimos buscar clientes." }
 

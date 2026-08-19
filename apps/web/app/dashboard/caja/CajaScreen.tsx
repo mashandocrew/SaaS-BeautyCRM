@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, type FormEvent } from "react"
+import { useState, type FocusEvent, type FormEvent } from "react"
 import { useRouter } from "next/navigation"
 import { Button, Card, Field, Input, StatTile } from "@beautycrm/ui"
 import { closeCashSession, openCashSession } from "@/lib/caja-actions"
@@ -12,6 +12,13 @@ import { SalesList } from "./SalesList"
 
 function formatPrice(n: number): string {
   return new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS" }).format(n)
+}
+
+// Con el "0" por defecto sin seleccionar, escribir un monto lo concatenaba
+// ("0" + "50000" = "050000") en vez de reemplazarlo — un error fácil justo
+// en el momento más sensible: apertura y cierre de caja.
+function selectAllOnFocus(e: FocusEvent<HTMLInputElement>) {
+  e.target.select()
 }
 
 const PAYMENT_METHOD_LABELS: Record<string, string> = {
@@ -99,10 +106,25 @@ export function CajaScreen({
 
         <Card>
           <h2>Abrir caja</h2>
+          {/* Si se vino de "Cobrar" en un turno con la caja cerrada, el
+              turno no se pierde — pero desaparece de la vista hasta que se
+              abre, sin ningún indicio de que estaba ahí. Este aviso cierra
+              esa confusión. */}
+          {charge ? (
+            <p className="field-hint">
+              Vas a cobrar el turno de <strong>{charge.client_name ?? "este cliente"}</strong> en cuanto abras la caja.
+            </p>
+          ) : null}
           {error ? <p className="error-banner">{error}</p> : null}
           <form onSubmit={handleOpen} noValidate>
             <Field label="Con cuánto arrancás" htmlFor="opening-amount" hint="El efectivo que ya hay en el cajón.">
-              <Input id="opening-amount" type="number" value={opening} onChange={(e) => setOpening(e.target.value)} />
+              <Input
+                id="opening-amount"
+                type="number"
+                value={opening}
+                onChange={(e) => setOpening(e.target.value)}
+                onFocus={selectAllOnFocus}
+              />
             </Field>
             <Button type="submit" disabled={busy}>{busy ? "Abriendo..." : "Abrir caja"}</Button>
           </form>
@@ -176,7 +198,13 @@ export function CajaScreen({
             htmlFor="counted-total"
             hint="Sólo el efectivo del cajón. Tarjeta y transferencia no cuentan."
           >
-            <Input id="counted-total" type="number" value={counted} onChange={(e) => setCounted(e.target.value)} />
+            <Input
+              id="counted-total"
+              type="number"
+              value={counted}
+              onChange={(e) => setCounted(e.target.value)}
+              onFocus={selectAllOnFocus}
+            />
           </Field>
           <Button type="submit" variant="secondary" disabled={busy}>
             {busy ? "Cerrando..." : "Cerrar caja"}

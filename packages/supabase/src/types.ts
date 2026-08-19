@@ -1230,6 +1230,14 @@ export type Database = {
         }
         Returns: number
       }
+      search_clients: {
+        Args: { p_query: string; p_tenant_id: string }
+        Returns: {
+          full_name: string
+          id: string
+          phone: string
+        }[]
+      }
       set_cash_permission: {
         Args: { p_can: boolean; p_tenant_id: string; p_user_id: string }
         Returns: undefined

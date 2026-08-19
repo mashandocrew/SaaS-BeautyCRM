@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState, type FormEvent } from "react"
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react"
 import { useRouter } from "next/navigation"
 import { Button, Field, Input, Sheet } from "@beautycrm/ui"
 import type { AgendaAppointment, AgendaOperator, AgendaService } from "@/lib/agenda-types"
@@ -54,13 +54,23 @@ export function NewAppointmentModal({
     setError(null)
   }, [open, initialOperatorId, initialStartISO])
 
+  // requestIdRef descarta respuestas que ya quedaron viejas: el debounce
+  // evita mandar un pedido por cada tecla, pero no evita que dos pedidos
+  // quedaran en vuelo si hubo una pausa al tipear (por ej. "Gonz" ... pausa
+  // ... "ález") — sin este guard, la respuesta más lenta de las dos podía
+  // llegar después y pisar el resultado correcto con uno viejo, dejando la
+  // búsqueda "sin resultados" aunque el cliente existiera.
+  const searchRequestId = useRef(0)
+
   useEffect(() => {
     if (query.trim().length < 2) {
       setResults([])
       return
     }
     const timer = setTimeout(async () => {
+      const requestId = ++searchRequestId.current
       const result = await searchClients(tenantId, query)
+      if (requestId !== searchRequestId.current) return
       if (result.ok) {
         setResults(result.data)
       }

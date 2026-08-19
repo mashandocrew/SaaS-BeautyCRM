@@ -85,6 +85,12 @@ export default async function DashboardPage() {
                     <Badge tone={a.status === "done" ? "success" : "neutral"}>
                       {STATUS_LABEL[a.status] ?? a.status}
                     </Badge>
+                    {a.doneWithoutSale ? (
+                      <>
+                        {" "}
+                        <Badge tone="warning">Sin cobrar</Badge>
+                      </>
+                    ) : null}
                   </td>
                 </tr>
               ))}

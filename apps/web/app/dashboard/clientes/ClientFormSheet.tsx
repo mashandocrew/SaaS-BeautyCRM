@@ -45,6 +45,16 @@ export function ClientFormSheet({
       setError("El nombre es obligatorio.")
       return
     }
+    // Validado acá y no dejado sólo al type="email" nativo: con noValidate
+    // en otros forms del módulo la validación siempre vive en JS, y acá
+    // sin noValidate igual conviene — un mensaje propio en el banner, no un
+    // tooltip del navegador fácil de pasar por alto, sobre todo porque acá
+    // el campo es opcional y un mensaje inline no aclara que además falló
+    // guardar el resto del cliente.
+    if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      setError("El email no tiene un formato válido.")
+      return
+    }
 
     const input: ClientInput = {
       fullName,
@@ -55,7 +65,19 @@ export function ClientFormSheet({
     }
 
     setLoading(true)
-    const result = mode === "create" ? await createClient(tenantId, input) : await updateClient(client!.id, input)
+    let result =
+      mode === "create" ? await createClient(tenantId, input) : await updateClient(client!.id, input)
+
+    // Duplicado de teléfono: no es un error duro, es una confirmación. Si
+    // acepta, se reintenta la misma creación pidiéndole a la action que no
+    // vuelva a chequear.
+    if (!result.ok && result.code === "PHONE_DUPLICATE") {
+      setLoading(false)
+      if (!window.confirm(`${result.error} ¿Crear este cliente igual?`)) return
+      setLoading(true)
+      result = await createClient(tenantId, input, true)
+    }
+
     setLoading(false)
 
     if (!result.ok) {
